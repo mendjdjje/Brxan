@@ -1,0 +1,288 @@
+/* ============================================================
+   KeyAuth — Globale Styles & Design-Tokens
+   Dunkles "High-Tech"-Theme: Glas-Panels, Neon-Akzente, Glow.
+   ============================================================ */
+
+:root {
+  /* Farb-Tokens — Hintergrund */
+  --bg-base: #05070f;
+  --bg-deep: #03040a;
+  --bg-panel: rgba(17, 24, 42, 0.62);
+  --bg-panel-solid: #0c1326;
+  --bg-elevated: rgba(28, 38, 64, 0.55);
+  --bg-input: rgba(8, 13, 27, 0.72);
+
+  /* Farb-Tokens — Text */
+  --text-strong: #f3f7ff;
+  --text-base: #c3ccdf;
+  --text-muted: #7e8aa6;
+  --text-faint: #56607a;
+
+  /* Akzente — Neon */
+  --accent-cyan: #22d3ee;
+  --accent-violet: #a855f7;
+  --accent-blue: #3b82f6;
+  --accent-cyan-soft: rgba(34, 211, 238, 0.16);
+  --accent-violet-soft: rgba(168, 85, 247, 0.16);
+
+  /* Semantik */
+  --ok: #34d399;
+  --ok-soft: rgba(52, 211, 153, 0.14);
+  --warn: #fbbf24;
+  --warn-soft: rgba(251, 191, 36, 0.14);
+  --danger: #fb7185;
+  --danger-soft: rgba(251, 113, 133, 0.14);
+
+  /* Rahmen */
+  --border-faint: rgba(120, 140, 180, 0.14);
+  --border-base: rgba(130, 150, 190, 0.22);
+  --border-strong: rgba(150, 175, 220, 0.36);
+  --border-glow: rgba(34, 211, 238, 0.55);
+
+  /* Verlauf */
+  --grad-accent: linear-gradient(135deg, var(--accent-cyan) 0%, var(--accent-violet) 100%);
+  --grad-accent-soft: linear-gradient(
+    135deg,
+    rgba(34, 211, 238, 0.18) 0%,
+    rgba(168, 85, 247, 0.18) 100%
+  );
+
+  /* Abstaende */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* Radien */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 26px;
+  --radius-pill: 999px;
+
+  /* Schatten / Glow */
+  --shadow-panel: 0 30px 80px -30px rgba(3, 6, 18, 0.9), 0 0 0 1px var(--border-faint);
+  --glow-cyan: 0 0 24px -4px rgba(34, 211, 238, 0.55);
+  --glow-violet: 0 0 24px -4px rgba(168, 85, 247, 0.5);
+
+  /* Typografie */
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* Bewegung */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-fast: 140ms;
+  --dur-base: 240ms;
+  --dur-slow: 420ms;
+
+  color-scheme: dark;
+}
+
+/* ----- Reset ----- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-base);
+  background: var(--bg-base);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input,
+button,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+a {
+  color: var(--accent-cyan);
+  text-decoration: none;
+}
+
+::selection {
+  background: var(--accent-violet-soft);
+  color: var(--text-strong);
+}
+
+/* Sichtbarer Fokus-Ring (Tastaturbedienung) */
+:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 2px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-base);
+  border-radius: var(--radius-pill);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}
+
+/* ----- Utilities ----- */
+
+/* Nur fuer Screenreader sichtbar */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Glas-Panel */
+.glass {
+  background: var(--bg-panel);
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+  border: 1px solid var(--border-base);
+  border-radius: var(--radius-lg);
+}
+
+/* Akzent-Text mit Verlauf */
+.text-gradient {
+  background: var(--grad-accent);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ----- Keyframes ----- */
+@keyframes float-y {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes scan-line {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100vh);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes draw-check {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes shake {
+  10%,
+  90% {
+    transform: translateX(-1px);
+  }
+  20%,
+  80% {
+    transform: translateX(2px);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translateX(-4px);
+  }
+  40%,
+  60% {
+    transform: translateX(4px);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up var(--dur-slow) var(--ease-out) both;
+}
+
+.animate-shake {
+  animation: shake 0.4s var(--ease-out);
+}
+
+/* ----- Reduzierte Bewegung respektieren ----- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

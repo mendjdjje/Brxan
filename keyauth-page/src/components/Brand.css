@@ -1,0 +1,24 @@
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.brand__mark {
+  display: block;
+  filter: drop-shadow(0 0 10px rgba(34, 211, 238, 0.25));
+}
+
+.brand__word {
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-strong);
+}
+
+.brand__word-accent {
+  background: var(--grad-accent);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
