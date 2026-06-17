@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AtlasAuth — Software licensing infrastructure</title>
+    <meta name="description" content="A working dark SaaS landing site for software licensing, key verification, and access control.">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="nav shell" aria-label="Main navigation">
+        <a class="brand" href="#home" aria-label="AtlasAuth home">
+          <span class="brand-mark" aria-hidden="true">A</span>
+          <span>AtlasAuth</span>
+        </a>
+
+        <button class="nav-toggle" id="navToggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
+          <span></span>
+          <span></span>
+        </button>
+
+        <div class="nav-links" id="navLinks">
+          <a href="#features">Features</a>
+          <a href="#checker">Live checker</a>
+          <a href="#developers">Developers</a>
+          <a href="#pricing">Pricing</a>
+        </div>
+
+        <div class="nav-actions">
+          <button class="button ghost" type="button" data-open-modal>Sign in</button>
+          <button class="button light" type="button" data-open-modal>Start free</button>
+        </div>
+      </nav>
+    </header>
+
+    <main id="home">
+      <section class="hero shell">
+        <div class="hero-copy">
+          <p class="eyebrow">Licensing, authentication, telemetry</p>
+          <h1>Control access to your software before every unlock.</h1>
+          <p class="hero-text">
+            AtlasAuth is a polished command center for license keys, session checks, customer entitlements,
+            device limits, and fraud signals.
+          </p>
+          <div class="hero-actions">
+            <button class="button primary" type="button" data-open-modal>Create project</button>
+            <a class="button secondary" href="#checker">Try verifier</a>
+          </div>
+          <div class="trust-row" aria-label="Platform highlights">
+            <span>99.99% API uptime</span>
+            <span>42ms average latency</span>
+            <span>No dependencies required</span>
+          </div>
+        </div>
+
+        <div class="hero-panel" aria-label="AtlasAuth dashboard preview">
+          <div class="panel-topbar">
+            <span class="window-dot"></span>
+            <span class="window-dot"></span>
+            <span class="window-dot"></span>
+            <strong>atlas://control</strong>
+          </div>
+          <div class="metric-grid">
+            <article class="metric-card">
+              <span>Verified today</span>
+              <strong id="verifiedMetric">18,428</strong>
+            </article>
+            <article class="metric-card">
+              <span>Risk blocks</span>
+              <strong>312</strong>
+            </article>
+            <article class="metric-card">
+              <span>Live sessions</span>
+              <strong id="sessionMetric">1,846</strong>
+            </article>
+          </div>
+          <div class="chart-card">
+            <div class="section-heading compact">
+              <p>Traffic monitor</p>
+              <h2>Verification flow</h2>
+            </div>
+            <div class="bars" aria-hidden="true">
+              <span style="height: 42%"></span>
+              <span style="height: 58%"></span>
+              <span style="height: 51%"></span>
+              <span style="height: 74%"></span>
+              <span style="height: 67%"></span>
+              <span style="height: 91%"></span>
+              <span style="height: 78%"></span>
+              <span style="height: 96%"></span>
+              <span style="height: 84%"></span>
+              <span style="height: 89%"></span>
+            </div>
+          </div>
+          <div class="event-feed" aria-label="Security event feed">
+            <div><span class="status allow"></span>license.verify accepted session from eu-west</div>
+            <div><span class="status warn"></span>device fingerprint changed for key AK-42F9</div>
+            <div><span class="status deny"></span>blocked duplicate activation from new host</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell" id="features">
+        <div class="section-heading">
+          <p>Platform</p>
+          <h2>Everything needed to protect a paid product.</h2>
+        </div>
+        <div class="feature-grid">
+          <article class="feature-card">
+            <span class="feature-icon">01</span>
+            <h3>License enforcement</h3>
+            <p>Bind plans, devices, seats, and session duration to a real-time access policy.</p>
+          </article>
+          <article class="feature-card">
+            <span class="feature-icon">02</span>
+            <h3>Scoped keys</h3>
+            <p>Issue keys with expirations, metadata, customer notes, and product-specific limits.</p>
+          </article>
+          <article class="feature-card">
+            <span class="feature-icon">03</span>
+            <h3>Fraud signals</h3>
+            <p>Flag duplicate activations, suspicious regions, and unexpected device changes.</p>
+          </article>
+          <article class="feature-card">
+            <span class="feature-icon">04</span>
+            <h3>Webhook automation</h3>
+            <p>Trigger renewals, suspensions, Discord roles, CRM updates, and customer emails.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section shell split" id="checker">
+        <div>
+          <div class="section-heading">
+            <p>Working demo</p>
+            <h2>Verify a license key in the browser.</h2>
+          </div>
+          <p class="muted">
+            This is a client-side simulator so the site works immediately. Try the sample key
+            <strong>ATLAS-DEMO-2026</strong> or generate a new one.
+          </p>
+          <form class="checker-form" id="checkerForm">
+            <label for="licenseKey">License key</label>
+            <div class="input-row">
+              <input id="licenseKey" name="licenseKey" placeholder="ATLAS-DEMO-2026" autocomplete="off">
+              <button class="button primary" type="submit">Verify</button>
+            </div>
+            <button class="text-button" id="generateKey" type="button">Generate demo key</button>
+          </form>
+        </div>
+
+        <aside class="result-card" id="resultCard" aria-live="polite">
+          <span class="result-pill idle">Waiting</span>
+          <h3>No verification yet</h3>
+          <p>Submit a key to see plan, expiry, seat usage, device state, and a simulated API response.</p>
+          <pre><code>{
+  "status": "idle",
+  "verified": false
+}</code></pre>
+        </aside>
+      </section>
+
+      <section class="section shell split reverse" id="developers">
+        <div class="code-card">
+          <div class="code-head">
+            <span>JavaScript</span>
+            <button class="text-button" id="copyCode" type="button">Copy</button>
+          </div>
+          <pre><code id="codeSnippet">const client = new AtlasAuth({
+  app: "desktop-suite",
+  environment: "production"
+});
+
+const session = await client.licenses.verify({
+  key: licenseKey,
+  device: fingerprint
+});</code></pre>
+        </div>
+        <div>
+          <div class="section-heading">
+            <p>Developers</p>
+            <h2>One check before unlock.</h2>
+          </div>
+          <div class="steps">
+            <article>
+              <span>1</span>
+              <div>
+                <h3>Create an app</h3>
+                <p>Separate each product into its own policy, event stream, and customer base.</p>
+              </div>
+            </article>
+            <article>
+              <span>2</span>
+              <div>
+                <h3>Issue keys</h3>
+                <p>Generate license keys manually or automatically from a payment event.</p>
+              </div>
+            </article>
+            <article>
+              <span>3</span>
+              <div>
+                <h3>Verify sessions</h3>
+                <p>Call the verifier at startup and refresh state while the application is running.</p>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell" id="pricing">
+        <div class="pricing-head">
+          <div class="section-heading">
+            <p>Pricing</p>
+            <h2>Start small, scale cleanly.</h2>
+          </div>
+          <label class="billing-toggle">
+            <input id="annualToggle" type="checkbox">
+            <span>Annual billing</span>
+          </label>
+        </div>
+        <div class="pricing-grid">
+          <article class="price-card">
+            <h3>Launch</h3>
+            <p>For small tools and private products.</p>
+            <strong><span data-monthly="19" data-annual="15">$19</span><small>/mo</small></strong>
+            <ul>
+              <li>2 applications</li>
+              <li>1,000 active licenses</li>
+              <li>Basic analytics</li>
+              <li>Community support</li>
+            </ul>
+            <button class="button secondary full" type="button" data-open-modal>Choose Launch</button>
+          </article>
+          <article class="price-card featured">
+            <span class="popular">Popular</span>
+            <h3>Scale</h3>
+            <p>For growing software businesses.</p>
+            <strong><span data-monthly="59" data-annual="47">$59</span><small>/mo</small></strong>
+            <ul>
+              <li>Unlimited applications</li>
+              <li>25,000 active licenses</li>
+              <li>Advanced fraud signals</li>
+              <li>Priority support</li>
+            </ul>
+            <button class="button primary full" type="button" data-open-modal>Choose Scale</button>
+          </article>
+          <article class="price-card">
+            <h3>Enterprise</h3>
+            <p>For teams with compliance needs.</p>
+            <strong>Custom</strong>
+            <ul>
+              <li>Dedicated infrastructure</li>
+              <li>Custom retention</li>
+              <li>SAML and audit logs</li>
+              <li>Security review support</li>
+            </ul>
+            <button class="button secondary full" type="button" data-open-modal>Contact sales</button>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer shell">
+      <span>AtlasAuth concept site</span>
+      <span>Built as a working static app</span>
+    </footer>
+
+    <dialog class="modal" id="accountModal" aria-labelledby="modalTitle">
+      <form class="modal-card" id="accountForm" method="dialog">
+        <button class="modal-close" value="cancel" type="button" data-close-modal aria-label="Close modal">×</button>
+        <p class="eyebrow">Demo account</p>
+        <h2 id="modalTitle">Create your AtlasAuth workspace</h2>
+        <p class="muted">This demo stores the workspace name locally in your browser only.</p>
+        <label for="workspaceName">Workspace name</label>
+        <input id="workspaceName" name="workspaceName" placeholder="Acme Tools" required>
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" placeholder="you@example.com" required>
+        <button class="button primary full" type="submit">Create demo workspace</button>
+      </form>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
