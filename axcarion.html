@@ -1,0 +1,2174 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Axcarion — Nachzeichnen leicht gemacht</title>
+<meta name="description" content="Axcarion: Vorlagen professionell nachzeichnen mit Display- und Kamera-Overlay.">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#14161B">
+<link rel="icon" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Axcarion">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   AXCARION — DESIGN TOKENS
+   ============================================================ */
+:root{
+  --ink:#14161B;
+  --ink-2:#191C22;
+  --panel:#1D2027;
+  --panel-2:#262A33;
+  --panel-3:#2F333E;
+  --stroke:rgba(255,255,255,0.09);
+  --stroke-strong:rgba(255,255,255,0.16);
+  --vellum:#EDE7DA;
+  --vellum-dim:#C9C2B2;
+  --ember:#FF6B4A;
+  --ember-dim:#E24E30;
+  --ember-glow:rgba(255,107,74,0.35);
+  --slate:#7C8CE0;
+  --slate-dim:#5C6DC7;
+  --lime:#B7E24B;
+  --danger:#FF5D5D;
+  --text:#F4F2EC;
+  --text-dim:#A7ABB6;
+  --text-faint:#6B707C;
+  --radius-s:8px;
+  --radius-m:14px;
+  --radius-l:22px;
+  --radius-xl:30px;
+  --font-display:'Fraunces', Georgia, serif;
+  --font-ui:'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --shadow-dock: 0 12px 40px rgba(0,0,0,0.45);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{
+  margin:0;
+  background:var(--ink);
+  color:var(--text);
+  font-family:var(--font-ui);
+  overflow:hidden;
+  position:fixed;
+  inset:0;
+  width:100%;
+  overscroll-behavior:none;
+}
+button{font-family:inherit; -webkit-user-select:none; user-select:none;}
+input,textarea{font-family:inherit;}
+img{-webkit-user-drag:none; user-drag:none;}
+::selection{background:var(--ember); color:#1a1a1a;}
+:focus-visible{outline:2px solid var(--ember); outline-offset:2px;}
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:0.001ms !important; transition-duration:0.001ms !important;}
+}
+
+.app{position:absolute; inset:0; overflow:hidden;}
+
+/* ---------- Screen management ---------- */
+.screen{
+  position:absolute; inset:0;
+  display:none;
+  flex-direction:column;
+  background:var(--ink);
+  padding-top:var(--safe-top);
+  padding-bottom:var(--safe-bottom);
+}
+.screen.active{display:flex;}
+.scroll{overflow-y:auto; -webkit-overflow-scrolling:touch;}
+
+/* ---------- Wordmark ---------- */
+.wordmark{
+  font-family:var(--font-display);
+  font-weight:600;
+  letter-spacing:0.01em;
+}
+.wordmark .x{color:var(--ember);}
+
+/* ============================================================
+   LOADING SCREEN
+   ============================================================ */
+#screen-loading{
+  align-items:center; justify-content:center;
+  background:
+    radial-gradient(ellipse 120% 80% at 50% 0%, rgba(255,107,74,0.10), transparent 60%),
+    radial-gradient(ellipse 100% 60% at 20% 100%, rgba(124,140,224,0.10), transparent 60%),
+    var(--ink);
+}
+.load-mark{
+  font-size:clamp(40px,11vw,58px);
+  margin-bottom:6px;
+}
+.load-tagline{
+  color:var(--text-dim);
+  font-size:13px;
+  letter-spacing:0.02em;
+  margin-bottom:56px;
+  text-align:center;
+}
+.load-bar-track{
+  width:min(280px, 70vw);
+  height:3px;
+  background:var(--panel-2);
+  border-radius:2px;
+  overflow:hidden;
+  position:relative;
+}
+.load-bar-fill{
+  height:100%;
+  width:0%;
+  background:linear-gradient(90deg, var(--slate), var(--ember));
+  border-radius:2px;
+  transition:width 0.18s ease-out;
+}
+.load-pct{
+  margin-top:14px;
+  font-size:13px;
+  color:var(--text-faint);
+  font-variant-numeric:tabular-nums;
+  letter-spacing:0.04em;
+}
+.load-tip{
+  position:absolute;
+  bottom:calc(48px + var(--safe-bottom));
+  left:24px; right:24px;
+  text-align:center;
+  font-size:13px;
+  color:var(--text-dim);
+  min-height:36px;
+  opacity:0;
+  transition:opacity 0.35s ease;
+}
+.load-tip.show{opacity:1;}
+.load-tip b{color:var(--vellum); font-weight:500;}
+
+/* ============================================================
+   MODAL / OVERLAY (Consent, Onboarding, Dialoge)
+   ============================================================ */
+.overlay{
+  position:absolute; inset:0;
+  background:rgba(10,11,14,0.72);
+  backdrop-filter:blur(6px);
+  display:none;
+  align-items:flex-end;
+  justify-content:center;
+  z-index:60;
+  padding-bottom:var(--safe-bottom);
+}
+.overlay.active{display:flex;}
+.overlay.center{align-items:center; padding:20px;}
+.sheet{
+  width:100%;
+  max-width:480px;
+  background:var(--panel);
+  border:1px solid var(--stroke);
+  border-radius:var(--radius-xl) var(--radius-xl) 0 0;
+  padding:26px 22px calc(22px + var(--safe-bottom));
+  max-height:88vh;
+  overflow-y:auto;
+}
+.overlay.center .sheet{border-radius:var(--radius-l);}
+.sheet h2{
+  font-family:var(--font-display);
+  font-size:22px;
+  font-weight:600;
+  margin:0 0 10px;
+}
+.sheet p{
+  color:var(--text-dim);
+  font-size:14px;
+  line-height:1.55;
+  margin:0 0 14px;
+}
+.sheet .row-btns{display:flex; gap:10px; margin-top:18px;}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.btn{
+  border:none; border-radius:999px;
+  padding:14px 22px;
+  font-size:14.5px;
+  font-weight:600;
+  cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  transition:transform 0.12s ease, opacity 0.12s ease, background 0.12s ease;
+  white-space:nowrap;
+}
+.btn:active{transform:scale(0.96);}
+.btn-primary{background:var(--ember); color:#1a1108;}
+.btn-primary:hover{background:var(--ember-dim);}
+.btn-ghost{background:var(--panel-2); color:var(--text);}
+.btn-ghost:hover{background:var(--panel-3);}
+.btn-outline{background:transparent; color:var(--text); border:1px solid var(--stroke-strong);}
+.btn-text{background:transparent; color:var(--text-dim); padding:14px 10px;}
+.btn-text:hover{color:var(--text);}
+.btn-block{width:100%;}
+.btn-sm{padding:9px 14px; font-size:13px;}
+.btn[disabled]{opacity:0.4; pointer-events:none;}
+.btn-icon{
+  width:44px; height:44px; padding:0; border-radius:50%;
+  background:var(--panel-2); color:var(--text);
+  display:inline-flex; align-items:center; justify-content:center;
+  border:none; cursor:pointer;
+}
+.btn-icon:active{transform:scale(0.92);}
+.btn-icon.active{background:var(--ember); color:#1a1108;}
+.btn-icon svg{width:20px; height:20px;}
+
+/* ============================================================
+   TOP BAR (generic)
+   ============================================================ */
+.topbar{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 18px;
+  flex-shrink:0;
+}
+.topbar h1{font-size:17px; font-weight:600; margin:0;}
+.back-btn{
+  width:38px; height:38px; border-radius:50%;
+  background:var(--panel-2); border:none; color:var(--text);
+  display:flex; align-items:center; justify-content:center; cursor:pointer;
+}
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+#toast-host{
+  position:absolute; left:0; right:0;
+  bottom:calc(24px + var(--safe-bottom));
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+  pointer-events:none; z-index:200;
+}
+.toast{
+  background:var(--panel-3); color:var(--text);
+  border:1px solid var(--stroke-strong);
+  padding:11px 18px; border-radius:999px;
+  font-size:13px; font-weight:500;
+  box-shadow:0 8px 24px rgba(0,0,0,0.4);
+  opacity:0; transform:translateY(8px);
+  transition:opacity 0.25s ease, transform 0.25s ease;
+}
+.toast.show{opacity:1; transform:translateY(0);}
+
+/* ============================================================
+   PAYWALL
+   ============================================================ */
+#screen-paywall{padding:0;}
+.pw-hero{
+  padding:calc(28px + var(--safe-top)) 22px 22px;
+  background:linear-gradient(180deg, rgba(255,107,74,0.14), transparent 70%);
+  flex-shrink:0;
+}
+.pw-hero .wordmark{font-size:15px; color:var(--text-dim); margin-bottom:18px;}
+.pw-hero h1{
+  font-family:var(--font-display); font-weight:600;
+  font-size:clamp(26px,7vw,32px); line-height:1.15; margin:0 0 8px;
+}
+.pw-hero p{color:var(--text-dim); font-size:14px; margin:0; max-width:40ch;}
+.pw-body{flex:1; overflow-y:auto; padding:4px 22px 22px;}
+.pw-trial-banner{
+  display:flex; align-items:center; gap:12px;
+  background:var(--panel); border:1px solid var(--ember); border-radius:var(--radius-m);
+  padding:14px 16px; margin-bottom:18px;
+}
+.pw-trial-banner .dot{width:8px; height:8px; border-radius:50%; background:var(--ember); flex-shrink:0;}
+.pw-trial-banner b{font-size:13.5px;}
+.pw-trial-banner span{display:block; font-size:12px; color:var(--text-dim); margin-top:1px;}
+.plans{display:flex; flex-direction:column; gap:10px; margin-bottom:20px;}
+.plan{
+  position:relative;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:16px 18px;
+  background:var(--panel); border:1.5px solid var(--stroke);
+  border-radius:var(--radius-m);
+  cursor:pointer; transition:border-color 0.15s ease, background 0.15s ease;
+}
+.plan.selected{border-color:var(--ember); background:var(--panel-2);}
+.plan .plan-name{font-weight:600; font-size:15px;}
+.plan .plan-sub{font-size:12px; color:var(--text-dim); margin-top:2px;}
+.plan .plan-price{font-family:var(--font-display); font-size:19px; font-weight:600;}
+.plan .plan-price small{font-family:var(--font-ui); font-size:11px; color:var(--text-dim); font-weight:500;}
+.plan .badge{
+  position:absolute; top:-9px; left:18px;
+  background:var(--lime); color:#16210a; font-size:10.5px; font-weight:700;
+  padding:3px 9px; border-radius:999px; letter-spacing:0.02em;
+}
+.pw-note{font-size:11.5px; color:var(--text-faint); line-height:1.5; margin-bottom:14px;}
+.pw-sticky{
+  padding:14px 22px calc(16px + var(--safe-bottom));
+  border-top:1px solid var(--stroke);
+  background:var(--ink);
+  flex-shrink:0;
+}
+
+/* ============================================================
+   ONBOARDING
+   ============================================================ */
+.ob-card{width:100%; max-width:420px; background:var(--panel); border:1px solid var(--stroke); border-radius:var(--radius-l); padding:30px 26px 24px; text-align:center;}
+.ob-icon{
+  width:74px; height:74px; margin:0 auto 22px; border-radius:22px;
+  background:linear-gradient(150deg, rgba(255,107,74,0.22), rgba(124,140,224,0.18));
+  display:flex; align-items:center; justify-content:center;
+}
+.ob-icon svg{width:34px; height:34px; color:var(--ember);}
+.ob-step-label{font-size:12px; color:var(--text-faint); letter-spacing:0.03em; margin-bottom:6px;}
+.ob-card h2{font-family:var(--font-display); font-size:21px; margin:0 0 10px;}
+.ob-card p{color:var(--text-dim); font-size:14px; line-height:1.55; margin:0 0 22px;}
+.ob-dots{display:flex; gap:6px; justify-content:center; margin-bottom:22px;}
+.ob-dots span{width:6px; height:6px; border-radius:50%; background:var(--stroke-strong); transition:background 0.2s, width 0.2s;}
+.ob-dots span.active{background:var(--ember); width:18px; border-radius:4px;}
+.ob-actions{display:flex; flex-direction:column; gap:10px;}
+
+/* ============================================================
+   HAUPTMENÜ
+   ============================================================ */
+.menu-top{
+  padding:calc(18px + var(--safe-top)) 20px 14px;
+  display:flex; align-items:center; justify-content:space-between;
+  flex-shrink:0;
+}
+.menu-top .wordmark{font-size:19px;}
+.menu-top .menu-top-actions{display:flex; gap:8px;}
+.menu-scroll{flex:1; overflow-y:auto; padding:0 20px calc(28px + var(--safe-bottom));}
+.menu-greet{font-size:13px; color:var(--text-dim); margin:2px 0 18px;}
+.quick-row{display:flex; gap:10px; margin-bottom:26px; overflow-x:auto; padding-bottom:2px;}
+.quick-chip{
+  flex-shrink:0; display:flex; align-items:center; gap:8px;
+  background:var(--panel); border:1px solid var(--stroke); border-radius:999px;
+  padding:10px 16px; font-size:13px; font-weight:500; color:var(--text); cursor:pointer;
+}
+.quick-chip svg{width:16px; height:16px; color:var(--ember);}
+.section-label{font-size:13px; font-weight:600; color:var(--text-dim); margin:0 0 12px; display:flex; align-items:center; justify-content:space-between;}
+.mosaic{
+  display:grid;
+  grid-template-columns:repeat(6, 1fr);
+  gap:10px;
+  margin-bottom:8px;
+}
+.tile{
+  position:relative; overflow:hidden;
+  border-radius:var(--radius-m);
+  background:var(--panel);
+  border:1px solid var(--stroke);
+  cursor:pointer;
+  display:flex; flex-direction:column; justify-content:flex-end;
+  padding:14px 12px;
+  min-height:96px;
+  grid-column:span 3;
+  transition:transform 0.12s ease, border-color 0.12s ease;
+}
+.tile:active{transform:scale(0.97);}
+.tile.big{grid-column:span 6; min-height:132px;}
+.tile .tile-icon{width:26px; height:26px; color:var(--ember); margin-bottom:auto;}
+.tile .tile-icon svg{width:100%; height:100%;}
+.tile .tile-name{font-size:13.5px; font-weight:600; position:relative; z-index:1;}
+.tile .tile-glow{
+  position:absolute; inset:0; opacity:0.5;
+  background:radial-gradient(circle at 85% 15%, var(--tint,rgba(255,107,74,0.25)), transparent 60%);
+}
+
+/* ============================================================
+   BIBLIOTHEK / SUCHE / GALERIE
+   ============================================================ */
+.lib-tabs{display:flex; gap:6px; padding:0 20px 14px; flex-shrink:0; overflow-x:auto;}
+.lib-tab{
+  flex-shrink:0; padding:9px 15px; border-radius:999px; font-size:13px; font-weight:600;
+  background:var(--panel); color:var(--text-dim); border:1px solid var(--stroke); cursor:pointer;
+}
+.lib-tab.active{background:var(--ember); color:#1a1108; border-color:var(--ember);}
+.lib-body{flex:1; overflow-y:auto; padding:0 20px calc(24px + var(--safe-bottom));}
+.lib-cat-scroller{display:flex; gap:8px; overflow-x:auto; padding-bottom:14px; margin-bottom:6px; border-bottom:1px solid var(--stroke);}
+.lib-cat-pill{flex-shrink:0; padding:7px 14px; border-radius:999px; font-size:12.5px; font-weight:500; background:transparent; border:1px solid var(--stroke-strong); color:var(--text-dim); cursor:pointer;}
+.lib-cat-pill.active{background:var(--panel-2); color:var(--text); border-color:var(--text-dim);}
+.thumb-grid{display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; padding-top:14px;}
+.thumb{
+  aspect-ratio:1; border-radius:var(--radius-m); background:var(--vellum);
+  display:flex; align-items:center; justify-content:center; cursor:pointer;
+  border:1px solid var(--stroke); overflow:hidden; position:relative;
+}
+.thumb img{width:82%; height:82%; object-fit:contain;}
+.thumb:active{transform:scale(0.96);}
+.thumb-label{position:absolute; left:6px; bottom:6px; font-size:9.5px; font-weight:600; color:#5b5647; background:rgba(237,231,218,0.85); padding:2px 6px; border-radius:5px;}
+.search-bar{display:flex; gap:8px; padding:0 20px 14px; flex-shrink:0;}
+.search-bar input{
+  flex:1; background:var(--panel); border:1px solid var(--stroke); border-radius:999px;
+  padding:12px 18px; color:var(--text); font-size:14px;
+}
+.search-bar input::placeholder{color:var(--text-faint);}
+.lib-license-note{
+  font-size:11.5px; color:var(--text-faint); line-height:1.5;
+  background:var(--panel); border:1px solid var(--stroke); border-radius:var(--radius-s);
+  padding:10px 12px; margin-bottom:14px;
+}
+.upload-zone{
+  border:1.5px dashed var(--stroke-strong); border-radius:var(--radius-l);
+  padding:36px 20px; text-align:center; color:var(--text-dim); cursor:pointer; margin-top:8px;
+}
+.upload-zone svg{width:30px; height:30px; color:var(--ember); margin-bottom:10px;}
+.upload-zone b{color:var(--text); display:block; margin-bottom:4px; font-size:14px;}
+.upload-zone span{font-size:12.5px;}
+.empty-state{text-align:center; padding:60px 20px; color:var(--text-faint);}
+.empty-state svg{width:36px; height:36px; margin-bottom:14px; color:var(--text-faint);}
+.empty-state p{font-size:13.5px; margin:0;}
+
+/* ============================================================
+   EDITOR
+   ============================================================ */
+#screen-editor{background:#0e0f12;}
+.editor-stage{
+  flex:1; position:relative; overflow:hidden;
+  display:flex; align-items:center; justify-content:center;
+  background:
+    linear-gradient(45deg, #17181c 25%, transparent 25%) -10px 0/20px 20px,
+    linear-gradient(-45deg, #17181c 25%, transparent 25%) -10px 0/20px 20px,
+    linear-gradient(45deg, transparent 75%, #17181c 75%) -10px 0/20px 20px,
+    linear-gradient(-45deg, transparent 75%, #17181c 75%) -10px 0/20px 20px,
+    #101114;
+}
+.editor-stage img{max-width:78%; max-height:78%; object-fit:contain; user-select:none; pointer-events:none;}
+.crop-box{
+  position:absolute; border:2px solid var(--ember);
+  box-shadow:0 0 0 2000px rgba(0,0,0,0.55);
+  touch-action:none;
+}
+.crop-handle{
+  position:absolute; width:20px; height:20px; background:var(--ember); border-radius:50%;
+  border:3px solid var(--ink); touch-action:none;
+}
+.crop-handle.nw{top:-10px; left:-10px; cursor:nwse-resize;}
+.crop-handle.ne{top:-10px; right:-10px; cursor:nesw-resize;}
+.crop-handle.sw{bottom:-10px; left:-10px; cursor:nesw-resize;}
+.crop-handle.se{bottom:-10px; right:-10px; cursor:nwse-resize;}
+.editor-tools{flex-shrink:0; background:var(--panel); border-top:1px solid var(--stroke); padding:14px 18px calc(14px + var(--safe-bottom));}
+.tool-tabs{display:flex; gap:6px; margin-bottom:14px; overflow-x:auto;}
+.tool-tab{flex-shrink:0; padding:8px 14px; border-radius:999px; font-size:12.5px; font-weight:600; background:var(--panel-2); color:var(--text-dim); border:none; cursor:pointer;}
+.tool-tab.active{background:var(--ember); color:#1a1108;}
+.tool-panel{display:none;}
+.tool-panel.active{display:block;}
+.tool-row{display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap;}
+.slider-row{display:flex; flex-direction:column; gap:6px; margin-bottom:12px;}
+.slider-label{display:flex; justify-content:space-between; font-size:12.5px; color:var(--text-dim);}
+.slider-label b{color:var(--text); font-weight:600;}
+input[type=range]{
+  -webkit-appearance:none; appearance:none; width:100%; height:34px; background:transparent; margin:0;
+}
+input[type=range]::-webkit-slider-runnable-track{height:4px; background:var(--panel-3); border-radius:2px;}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none; width:20px; height:20px; border-radius:50%;
+  background:var(--ember); margin-top:-8px; border:3px solid var(--ink);
+  box-shadow:0 2px 8px rgba(0,0,0,0.4);
+}
+input[type=range]::-moz-range-track{height:4px; background:var(--panel-3); border-radius:2px;}
+input[type=range]::-moz-range-thumb{width:20px; height:20px; border-radius:50%; background:var(--ember); border:3px solid var(--ink);}
+.editor-cta{display:flex; gap:10px; margin-top:4px;}
+
+/* ============================================================
+   ZEICHENMODUS (Display / Kamera)
+   ============================================================ */
+#screen-draw{background:#000;}
+.draw-stage{flex:1; position:relative; overflow:hidden; touch-action:none; background:#0b0c0e;}
+.draw-video{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:none;}
+.draw-paper-hint{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  flex-direction:column; gap:10px; color:var(--text-faint); text-align:center; padding:30px;
+  background:
+    repeating-linear-gradient(0deg, #16171b 0px, #16171b 1px, transparent 1px, transparent 38px),
+    repeating-linear-gradient(90deg, #16171b 0px, #16171b 1px, transparent 1px, transparent 38px),
+    #0f1013;
+}
+.draw-paper-hint svg{width:30px; height:30px;}
+.draw-paper-hint span{font-size:12.5px; max-width:32ch;}
+.overlay-img-wrap{
+  position:absolute; left:50%; top:50%; width:60%;
+  transform:translate(-50%,-50%);
+  touch-action:none;
+  will-change:transform;
+}
+.overlay-img-wrap img{width:100%; display:block; user-select:none; pointer-events:none; filter:none;}
+.overlay-img-wrap.locked{outline:2px dashed transparent;}
+.grid-overlay{position:absolute; inset:0; pointer-events:none; opacity:0.5;}
+.draw-topbar{
+  position:absolute; top:0; left:0; right:0; z-index:20;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:calc(14px + var(--safe-top)) 16px 40px;
+  background:linear-gradient(180deg, rgba(0,0,0,0.55), transparent);
+  pointer-events:none;
+}
+.draw-topbar > *{pointer-events:auto;}
+.mode-switch{display:flex; background:rgba(30,32,38,0.85); backdrop-filter:blur(8px); border-radius:999px; padding:3px; border:1px solid rgba(255,255,255,0.1);}
+.mode-switch button{border:none; background:transparent; color:var(--text-dim); font-size:12.5px; font-weight:600; padding:8px 14px; border-radius:999px; cursor:pointer;}
+.mode-switch button.active{background:var(--text); color:#111;}
+.lock-fab{
+  width:50px; height:50px; border-radius:50%; border:none; cursor:pointer;
+  background:rgba(30,32,38,0.85); backdrop-filter:blur(8px); color:var(--text);
+  display:flex; align-items:center; justify-content:center;
+  border:1px solid rgba(255,255,255,0.12);
+}
+.lock-fab.locked{background:var(--ember); color:#1a1108; border-color:var(--ember);}
+.lock-fab svg{width:22px; height:22px;}
+.cam-controls-row{
+  position:absolute; top:calc(64px + var(--safe-top)); right:14px; z-index:19;
+  display:flex; flex-direction:column; gap:10px;
+}
+.cam-mini-btn{
+  width:40px; height:40px; border-radius:50%; border:none; cursor:pointer;
+  background:rgba(30,32,38,0.8); backdrop-filter:blur(8px); color:var(--text-dim);
+  display:flex; align-items:center; justify-content:center; border:1px solid rgba(255,255,255,0.1);
+}
+.cam-mini-btn.active{color:var(--ember); border-color:var(--ember);}
+.cam-mini-btn svg{width:17px; height:17px;}
+.cam-mini-btn[disabled]{opacity:0.3; pointer-events:none;}
+
+.zoom-presets{
+  position:absolute; bottom:16px; left:50%; transform:translateX(-50%); z-index:19;
+  display:none; gap:4px;
+  background:rgba(20,21,26,0.75); backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,0.12); border-radius:999px; padding:4px;
+}
+.zoom-btn{
+  border:none; background:transparent; color:var(--text-dim);
+  font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;
+  width:34px; height:34px; border-radius:50%; cursor:pointer;
+}
+.zoom-btn.active{background:var(--ember); color:#1a1108;}
+.zoom-btn[disabled]{opacity:0.3; pointer-events:none;}
+
+.cam-error{
+  position:absolute; inset:0; z-index:25; display:none;
+  flex-direction:column; align-items:center; justify-content:center; gap:14px;
+  background:rgba(10,11,14,0.94); padding:36px 26px; text-align:center;
+  overflow-y:auto;
+}
+.cam-error svg{width:32px; height:32px; color:var(--danger); flex-shrink:0;}
+.cam-error p{font-size:12.5px; color:var(--text-dim); line-height:1.6; max-width:38ch; margin:0; white-space:pre-line; text-align:left;}
+.cam-error p.diag{color:var(--text-faint); font-size:11px; font-family:monospace; text-align:left;}
+
+.draw-dock{
+  flex-shrink:0; z-index:20;
+  background:linear-gradient(0deg, rgba(10,11,14,0.97), rgba(10,11,14,0.88));
+  backdrop-filter:blur(10px);
+  border-top:1px solid var(--stroke);
+  padding:14px 16px calc(12px + var(--safe-bottom));
+}
+.dock-primary-row{display:flex; align-items:center; gap:14px; margin-bottom:10px;}
+.dock-primary-row .slider-wrap{flex:1;}
+.dock-primary-row .slider-label{margin-bottom:2px;}
+.dock-tools{display:flex; align-items:center; gap:8px; overflow-x:auto; padding-bottom:2px;}
+.dock-tools .btn-icon{flex-shrink:0;}
+.dock-adv{display:none; margin-top:12px; padding-top:12px; border-top:1px solid var(--stroke);}
+.dock-adv.show{display:block;}
+.beginner-hide{display:none !important;}
+
+/* ============================================================
+   PROJEKTE
+   ============================================================ */
+.proj-list{display:flex; flex-direction:column; gap:10px; padding:0 20px calc(24px + var(--safe-bottom));}
+.proj-card{
+  display:flex; gap:12px; align-items:center;
+  background:var(--panel); border:1px solid var(--stroke); border-radius:var(--radius-m); padding:10px; cursor:pointer;
+}
+.proj-thumb{width:56px; height:56px; border-radius:10px; background:var(--vellum); flex-shrink:0; display:flex; align-items:center; justify-content:center; overflow:hidden;}
+.proj-thumb img{width:80%; height:80%; object-fit:contain;}
+.proj-info{flex:1; min-width:0;}
+.proj-info .name{font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.proj-info .meta{font-size:12px; color:var(--text-faint); margin-top:2px;}
+.proj-actions{display:flex; gap:6px;}
+.proj-actions button{width:34px; height:34px; border-radius:50%; border:none; background:var(--panel-2); color:var(--text-dim); display:flex; align-items:center; justify-content:center; cursor:pointer;}
+.proj-actions button.fav-on{color:var(--ember);}
+.proj-actions button svg{width:16px; height:16px;}
+
+/* ============================================================
+   EINSTELLUNGEN
+   ============================================================ */
+.settings-list{padding:0 20px calc(24px + var(--safe-bottom));}
+.settings-group{margin-bottom:22px;}
+.settings-group-label{font-size:12px; color:var(--text-faint); letter-spacing:0.03em; margin:0 0 8px 4px; text-transform:uppercase;}
+.settings-item{
+  display:flex; align-items:center; justify-content:space-between;
+  background:var(--panel); border:1px solid var(--stroke);
+  padding:14px 16px; cursor:pointer;
+}
+.settings-item:first-child{border-radius:var(--radius-m) var(--radius-m) 0 0;}
+.settings-item:last-child{border-radius:0 0 var(--radius-m) var(--radius-m);}
+.settings-item + .settings-item{border-top:none;}
+.settings-item .label{font-size:14px; font-weight:500;}
+.settings-item .sub{font-size:12px; color:var(--text-faint); margin-top:2px;}
+.settings-item .val{font-size:13px; color:var(--text-dim);}
+.toggle{width:44px; height:26px; border-radius:999px; background:var(--panel-3); position:relative; flex-shrink:0; border:none; cursor:pointer;}
+.toggle .knob{position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:var(--text-dim); transition:left 0.18s ease, background 0.18s ease;}
+.toggle.on{background:var(--ember);}
+.toggle.on .knob{left:21px; background:#1a1108;}
+.settings-footer{text-align:center; padding:20px; color:var(--text-faint); font-size:11.5px; line-height:1.6;}
+
+@media (min-width:640px){
+  .mosaic{grid-template-columns:repeat(6,1fr);}
+  .thumb-grid{grid-template-columns:repeat(4,1fr);}
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- ============================================================
+       SCREEN: LOADING
+  ============================================================ -->
+  <section class="screen active" id="screen-loading">
+    <div class="load-mark wordmark"><span class="x">AX</span>CARION</div>
+    <div class="load-tagline">Deine Vorlage. Dein Papier. Dein Strich.</div>
+    <div class="load-bar-track"><div class="load-bar-fill" id="load-bar"></div></div>
+    <div class="load-pct" id="load-pct">0%</div>
+    <div class="load-tip" id="load-tip"></div>
+  </section>
+
+  <!-- ============================================================
+       OVERLAY: DATENSCHUTZ / COOKIE-ZUSTIMMUNG
+  ============================================================ -->
+  <div class="overlay" id="overlay-consent">
+    <div class="sheet">
+      <h2>Bevor es losgeht</h2>
+      <p>Axcarion speichert deine Einstellungen, Projekte und Favoriten ausschließlich lokal auf diesem Gerät. Kamera- und Galerie-Zugriff fragen wir erst ab, wenn du sie tatsächlich benutzt — z. B. beim Öffnen der Kamera oder beim Auswählen eines Fotos.</p>
+      <p style="font-size:12.5px; color:var(--text-faint);">Keine Weitergabe an Dritte. Keine Werbe-Tracker. Du kannst deine Daten jederzeit in den Einstellungen löschen.</p>
+      <div class="row-btns">
+        <button class="btn btn-primary btn-block" id="btn-consent-accept">Verstanden, weiter</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SCREEN: TESTVERSION / KAUF
+  ============================================================ -->
+  <section class="screen" id="screen-paywall">
+    <div class="pw-hero">
+      <div class="wordmark"><span class="x">AX</span>CARION</div>
+      <h1>Nachzeichnen wie ein Profi.</h1>
+      <p>Schalte alle Vorlagen, den Kamera-Modus und deine Projekte frei — jederzeit kündbar.</p>
+    </div>
+    <div class="pw-body scroll" id="pw-body">
+      <div class="pw-trial-banner">
+        <div class="dot"></div>
+        <div>
+          <b>3 Tage kostenlos testen</b>
+          <span>Danach automatisch dein gewähltes Paket — jederzeit vorher kündbar.</span>
+        </div>
+      </div>
+      <div class="plans" id="plan-list">
+        <div class="plan" data-plan="1m" data-price="10">
+          <div>
+            <div class="plan-name">1 Monat</div>
+            <div class="plan-sub">Monatlich kündbar</div>
+          </div>
+          <div class="plan-price">10&nbsp;€ <small>/ Monat</small></div>
+        </div>
+        <div class="plan selected" data-plan="5m" data-price="35">
+          <span class="badge">Beliebt</span>
+          <div>
+            <div class="plan-name">5 Monate</div>
+            <div class="plan-sub">7&nbsp;€ / Monat</div>
+          </div>
+          <div class="plan-price">35&nbsp;€ <small>einmalig</small></div>
+        </div>
+        <div class="plan" data-plan="1y" data-price="50">
+          <span class="badge">Bester Preis</span>
+          <div>
+            <div class="plan-name">1 Jahr</div>
+            <div class="plan-sub">4,17&nbsp;€ / Monat</div>
+          </div>
+          <div class="plan-price">50&nbsp;€ <small>einmalig</small></div>
+        </div>
+      </div>
+      <p class="pw-note">Zahlung wird in dieser Web-Testversion nur simuliert — es findet keine echte Abbuchung statt. In der Android-Version wird eine sichere Zahlungsabwicklung (z.&nbsp;B. Google Play Billing) angebunden.</p>
+    </div>
+    <div class="pw-sticky">
+      <button class="btn btn-primary btn-block" id="btn-start-trial">3 Tage kostenlos starten</button>
+      <button class="btn btn-text btn-block" id="btn-skip-trial">Nur testen, ohne Testphase fortfahren</button>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       SCREEN: ONBOARDING (als Overlay realisiert, siehe unten)
+  ============================================================ -->
+  <div class="overlay center" id="overlay-onboarding"></div>
+
+  <!-- ============================================================
+       SCREEN: HAUPTMENÜ
+  ============================================================ -->
+  <section class="screen" id="screen-menu">
+    <div class="menu-top">
+      <div class="wordmark"><span class="x">AX</span>CARION</div>
+      <div class="menu-top-actions">
+        <button class="btn-icon" id="btn-menu-mode" title="Anfänger/Profi-Modus" aria-label="Modus wechseln">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18M5 8l7-5 7 5M5 16l7 5 7-5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="btn-icon" id="btn-menu-settings" title="Einstellungen" aria-label="Einstellungen öffnen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.04 1.56V21a2 2 0 0 1-4 0v-.09A1.7 1.7 0 0 0 8.96 19a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.04H3a2 2 0 0 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1.04-1.56V3a2 2 0 0 1 4 0v.09A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.56 1.04H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="menu-scroll scroll">
+      <div class="menu-greet" id="menu-greet">Was möchtest du heute nachzeichnen?</div>
+      <div class="quick-row">
+        <div class="quick-chip" id="chip-continue">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 6v6l4 2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="9"/></svg>
+          Zuletzt verwendet
+        </div>
+        <div class="quick-chip" id="chip-projects">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Meine Projekte
+        </div>
+        <div class="quick-chip" id="chip-favorites">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7.5-4.6-10-9.2C.4 8.2 2 4 6 4c2 0 3.5 1.2 4 2.4C10.5 5.2 12 4 14 4c4 0 5.6 4.2 4 7.8-2.5 4.6-10 9.2-10 9.2z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Favoriten
+        </div>
+      </div>
+      <div class="section-label">Kategorien</div>
+      <div class="mosaic" id="category-mosaic"></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       SCREEN: BILD AUSWÄHLEN (Bibliothek / Galerie / Suche / Eigene)
+  ============================================================ -->
+  <section class="screen" id="screen-library">
+    <div class="topbar">
+      <button class="back-btn" id="lib-back" aria-label="Zurück">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <h1 id="lib-title">Vorlage wählen</h1>
+      <div style="width:38px;"></div>
+    </div>
+    <div class="lib-tabs">
+      <button class="lib-tab active" data-tab="bibliothek">Bibliothek</button>
+      <button class="lib-tab" data-tab="galerie">Galerie</button>
+      <button class="lib-tab" data-tab="suche">Internetsuche</button>
+      <button class="lib-tab" data-tab="eigene">Eigene Bilder</button>
+    </div>
+
+    <div class="lib-body scroll" id="lib-panel-bibliothek">
+      <div class="lib-cat-scroller" id="lib-cat-scroller"></div>
+      <div class="thumb-grid" id="lib-thumb-grid"></div>
+    </div>
+
+    <div class="lib-body scroll" id="lib-panel-galerie" style="display:none;">
+      <div class="upload-zone" id="upload-zone">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 16V4M7 9l5-5 5 5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <b>Foto aus der Galerie wählen</b>
+        <span>JPG, PNG oder WebP — wird nur lokal auf deinem Gerät verarbeitet</span>
+      </div>
+      <input type="file" id="file-input" accept="image/*" style="display:none;">
+    </div>
+
+    <div class="lib-body scroll" id="lib-panel-suche" style="display:none;">
+      <div class="search-bar" style="padding:0 0 14px;">
+        <input type="text" id="search-input" placeholder="z. B. Katze, Auto, Berge …">
+        <button class="btn btn-primary btn-sm" id="search-btn">Suchen</button>
+      </div>
+      <div class="lib-license-note">Demo-Suche innerhalb der freien Axcarion-Bibliothek. <span id="search-native-note">In der finalen Version wird hier eine Bildersuche mit geprüften Nutzungsrechten (Lizenz &amp; Quelle je Bild) angebunden.</span></div>
+      <div class="thumb-grid" id="search-results"></div>
+    </div>
+
+    <div class="lib-body scroll" id="lib-panel-eigene" style="display:none;">
+      <div class="thumb-grid" id="own-thumb-grid"></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       SCREEN: EDITOR (Zuschneiden, Drehen, Anpassen)
+  ============================================================ -->
+  <section class="screen" id="screen-editor">
+    <div class="topbar" style="background:var(--panel); border-bottom:1px solid var(--stroke);">
+      <button class="back-btn" id="editor-back" aria-label="Zurück">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <h1>Vorlage anpassen</h1>
+      <div style="display:flex; gap:6px;">
+        <button class="back-btn" id="editor-undo" aria-label="Rückgängig">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14l-4-4 4-4M5 10h9a5 5 0 0 1 0 10h-1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="back-btn" id="editor-redo" aria-label="Wiederholen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 14l4-4-4-4M19 10h-9a5 5 0 0 0 0 10h1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="editor-stage" id="editor-stage">
+      <img id="editor-img" src="" alt="Vorlage">
+      <div class="crop-box" id="crop-box" style="display:none;">
+        <div class="crop-handle nw" data-h="nw"></div>
+        <div class="crop-handle ne" data-h="ne"></div>
+        <div class="crop-handle sw" data-h="sw"></div>
+        <div class="crop-handle se" data-h="se"></div>
+      </div>
+    </div>
+    <div class="editor-tools">
+      <div class="tool-tabs">
+        <button class="tool-tab active" data-tool="zuschnitt">Zuschnitt</button>
+        <button class="tool-tab" data-tool="transform">Drehen &amp; Spiegeln</button>
+        <button class="tool-tab" data-tool="anpassen">Helligkeit &amp; Kontrast</button>
+        <button class="tool-tab" data-tool="transparenz">Transparenz</button>
+      </div>
+
+      <div class="tool-panel active" id="tool-zuschnitt">
+        <div class="tool-row">
+          <button class="btn btn-outline btn-sm" id="btn-crop-toggle">Zuschneiden aktivieren</button>
+          <button class="btn btn-outline btn-sm" id="btn-crop-reset">Zurücksetzen</button>
+        </div>
+      </div>
+
+      <div class="tool-panel" id="tool-transform">
+        <div class="slider-row">
+          <div class="slider-label"><span>Drehen</span><b id="val-rotate">0°</b></div>
+          <input type="range" id="edit-rotate" min="-180" max="180" value="0" step="1">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><span>Größe</span><b id="val-scale">100%</b></div>
+          <input type="range" id="edit-scale" min="30" max="200" value="100" step="1">
+        </div>
+        <div class="tool-row">
+          <button class="btn btn-outline btn-sm" id="btn-flip-h">↔ Horizontal spiegeln</button>
+          <button class="btn btn-outline btn-sm" id="btn-flip-v">↕ Vertikal spiegeln</button>
+        </div>
+      </div>
+
+      <div class="tool-panel" id="tool-anpassen">
+        <div class="slider-row">
+          <div class="slider-label"><span>Helligkeit</span><b id="val-bright">100%</b></div>
+          <input type="range" id="edit-bright" min="40" max="160" value="100" step="1">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><span>Kontrast</span><b id="val-contrast">100%</b></div>
+          <input type="range" id="edit-contrast" min="40" max="160" value="100" step="1">
+        </div>
+      </div>
+
+      <div class="tool-panel" id="tool-transparenz">
+        <div class="slider-row">
+          <div class="slider-label"><span>Transparenz-Vorschau</span><b id="val-opacity-edit">60%</b></div>
+          <input type="range" id="edit-opacity" min="0" max="100" value="60" step="1">
+        </div>
+        <p style="font-size:12px; color:var(--text-faint); margin:0;">Die endgültige Transparenz stellst du live beim Zeichnen ein.</p>
+      </div>
+
+      <div class="editor-cta">
+        <button class="btn btn-ghost" id="btn-editor-cancel">Abbrechen</button>
+        <button class="btn btn-primary btn-block" id="btn-start-drawing">Zeichnen starten</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       SCREEN: ZEICHNEN (Display- & Kamera/AR-Modus)
+  ============================================================ -->
+  <section class="screen" id="screen-draw">
+    <div class="draw-stage" id="draw-stage">
+      <video class="draw-video" id="draw-video" autoplay playsinline muted></video>
+      <div class="draw-paper-hint" id="draw-paper-hint">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M8 8h8M8 12h8M8 16h5" stroke-linecap="round"/></svg>
+        <span>Lege dein Papier vor dich hin und halte das Smartphone ruhig darüber.</span>
+      </div>
+      <svg class="grid-overlay" id="grid-overlay" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+      <div class="overlay-img-wrap" id="overlay-wrap">
+        <img id="overlay-img" src="" alt="Vorlage-Overlay" draggable="false">
+      </div>
+
+      <div class="draw-topbar">
+        <button class="back-btn" id="draw-back" aria-label="Zurück" style="background:rgba(30,32,38,0.85); backdrop-filter:blur(8px);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="mode-switch">
+          <button data-mode="display" class="active">Display</button>
+          <button data-mode="camera">Kamera / AR</button>
+        </div>
+        <button class="lock-fab" id="btn-lock" aria-label="Vorlage fixieren">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="lock-icon"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <div class="cam-controls-row" id="cam-controls-row" style="display:none;">
+        <button class="cam-mini-btn" id="btn-cam-switch" title="Kamera wechseln" aria-label="Kamera wechseln">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M23 4v6h-6M1 20v-6h6" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.5 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.65 4.36A9 9 0 0 0 20.5 15" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="cam-mini-btn" id="btn-cam-flash" title="Blitz" aria-label="Blitz umschalten">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="cam-mini-btn" id="btn-grid" title="Raster" aria-label="Raster umschalten">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="1.5"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+        </button>
+      </div>
+
+      <div class="zoom-presets" id="zoom-presets">
+        <button class="zoom-btn" data-zoom="0.5">0.5x</button>
+        <button class="zoom-btn active" data-zoom="1">1x</button>
+        <button class="zoom-btn" data-zoom="2">2x</button>
+      </div>
+
+      <div class="cam-error" id="cam-error">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 8h3l2-2h6l2 2h3v11H4z" stroke-linejoin="round"/><path d="M4 4l16 16" stroke-linecap="round"/></svg>
+        <p id="cam-error-text">Kamera konnte nicht gestartet werden.</p>
+        <button class="btn btn-primary btn-sm" id="btn-cam-retry">Erneut versuchen</button>
+      </div>
+    </div>
+
+    <div class="draw-dock">
+      <div class="dock-primary-row">
+        <div class="slider-wrap">
+          <div class="slider-label"><span>Transparenz</span><b id="val-opacity-draw">60%</b></div>
+          <input type="range" id="draw-opacity" min="0" max="100" value="60" step="1">
+        </div>
+      </div>
+      <div class="dock-tools">
+        <button class="btn-icon" id="btn-undo" title="Rückgängig" aria-label="Rückgängig">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14l-4-4 4-4M5 10h9a5 5 0 0 1 0 10h-1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="btn-icon" id="btn-redo" title="Wiederholen" aria-label="Wiederholen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 14l4-4-4-4M19 10h-9a5 5 0 0 0 0 10h1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="btn-icon" id="btn-mirror-h" title="Horizontal spiegeln" aria-label="Horizontal spiegeln">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M17 7l3 3-3 3M7 7l-3 3 3 3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="btn-icon" id="btn-mirror-v" title="Vertikal spiegeln" aria-label="Vertikal spiegeln">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M7 17l3 3 3-3M7 7l3-3 3 3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="btn-icon" id="btn-grid-basic" title="Raster" aria-label="Raster">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="1.5"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+        </button>
+        <button class="btn-icon beginner-hide" id="btn-adv-toggle" title="Erweitert" aria-label="Erweiterte Einstellungen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87M4.6 9a1.7 1.7 0 0 0-.34-1.87M9 4.6a1.7 1.7 0 0 0 1.56-1.6M15 4.6a1.7 1.7 0 0 0 1.44-1.6M9 19.4a1.7 1.7 0 0 0 1.56 1.6M15 19.4a1.7 1.7 0 0 0 1.44 1.6" stroke-linecap="round"/></svg>
+        </button>
+        <button class="btn-icon" id="btn-save-project" title="Projekt speichern" aria-label="Projekt speichern">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <div class="dock-adv" id="dock-adv">
+        <div class="slider-row">
+          <div class="slider-label"><span>Größe</span><b id="val-scale-draw">100%</b></div>
+          <input type="range" id="draw-scale" min="20" max="300" value="100" step="1">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><span>Rotation</span><b id="val-rotate-draw">0°</b></div>
+          <input type="range" id="draw-rotate" min="-180" max="180" value="0" step="1">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><span>Helligkeit</span><b id="val-bright-draw">100%</b></div>
+          <input type="range" id="draw-bright" min="40" max="160" value="100" step="1">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><span>Kontrast</span><b id="val-contrast-draw">100%</b></div>
+          <input type="range" id="draw-contrast" min="40" max="160" value="100" step="1">
+        </div>
+        <div class="tool-row">
+          <button class="btn btn-outline btn-sm" id="btn-wake-lock">Bildschirm wach halten: <span id="wake-lock-state">aus</span></button>
+          <button class="btn btn-outline btn-sm" id="btn-grid-cycle">Raster: <span id="grid-state">aus</span></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       SCREEN: PROJEKTE (Meine Bilder / Favoriten / Zuletzt / Gespeichert)
+  ============================================================ -->
+  <section class="screen" id="screen-projects">
+    <div class="topbar">
+      <button class="back-btn" id="proj-back" aria-label="Zurück">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <h1>Meine Projekte</h1>
+      <div style="width:38px;"></div>
+    </div>
+    <div class="lib-tabs">
+      <button class="lib-tab active" data-ptab="projekte">Gespeichert</button>
+      <button class="lib-tab" data-ptab="favoriten">Favoriten</button>
+      <button class="lib-tab" data-ptab="zuletzt">Zuletzt</button>
+      <button class="lib-tab" data-ptab="bilder">Meine Bilder</button>
+    </div>
+    <div class="scroll" style="flex:1;">
+      <div class="proj-list" id="proj-list"></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       SCREEN: EINSTELLUNGEN
+  ============================================================ -->
+  <section class="screen" id="screen-settings">
+    <div class="topbar">
+      <button class="back-btn" id="settings-back" aria-label="Zurück">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <h1>Einstellungen</h1>
+      <div style="width:38px;"></div>
+    </div>
+    <div class="settings-list scroll">
+      <div class="settings-group">
+        <div class="settings-group-label">Bedienung</div>
+        <div class="settings-item">
+          <div>
+            <div class="label">Profi-Modus</div>
+            <div class="sub">Zeigt zusätzliche Feineinstellungen</div>
+          </div>
+          <button class="toggle" id="toggle-pro"><div class="knob"></div></button>
+        </div>
+        <div class="settings-item" id="settings-replay-tutorial">
+          <div class="label">Tutorial erneut anzeigen</div>
+          <span class="val">›</span>
+        </div>
+      </div>
+      <div class="settings-group">
+        <div class="settings-group-label">Abo</div>
+        <div class="settings-item" id="settings-plan-info">
+          <div>
+            <div class="label">Aktueller Plan</div>
+            <div class="sub" id="settings-plan-sub">–</div>
+          </div>
+          <span class="val">Verwalten ›</span>
+        </div>
+      </div>
+      <div class="settings-group">
+        <div class="settings-group-label">Datenschutz</div>
+        <div class="settings-item" id="settings-privacy">
+          <div class="label">Wie Axcarion mit Daten umgeht</div>
+          <span class="val">›</span>
+        </div>
+        <div class="settings-item" id="settings-reset-all">
+          <div>
+            <div class="label" style="color:var(--danger);">Alle Daten löschen</div>
+            <div class="sub">Projekte, Favoriten, Einstellungen zurücksetzen</div>
+          </div>
+          <span class="val">›</span>
+        </div>
+      </div>
+      <div class="settings-footer">
+        <div class="wordmark" style="font-size:15px; margin-bottom:6px;"><span class="x">AX</span>CARION</div>
+        Version 0.1.0 (Web-Vorschau)<br>
+        Diese Vorschau läuft vollständig lokal in deinem Browser. Keine Angaben zu absoluter Sicherheit oder Unhackbarkeit — die Android-Version erhält zusätzliche serverseitige Absicherung.
+      </div>
+    </div>
+  </section>
+
+  <div id="toast-host"></div>
+</div>
+
+<script>
+/* ==================================================================
+   AXCARION — APPLICATION SCRIPT
+   Struktur: STATE -> DATA -> UTIL -> SCREENS -> INIT
+   Hinweis: Code ist modular aufgebaut, damit die Logik später
+   möglichst 1:1 in eine native Android-Architektur (Kotlin/Compose
+   + CameraX/ARCore) übertragen werden kann. Stellen, die in der
+   nativen App durch echte AR-/Kamera-Funktionen ersetzt werden,
+   sind mit "NATIVE-ANDROID:" markiert.
+   ================================================================== */
+
+/* ------------------------------------------------------------------
+   1. STATE
+------------------------------------------------------------------ */
+const state = {
+  screen:'screen-loading', proMode:false, locked:false, grid:'off',
+  drawMode:'display', cameraStream:null, facingMode:'environment',
+  wakeLock:null, torchOn:false, navStack:[], currentImage:null
+};
+let editTransform = {rotate:0,scale:100,flipH:false,flipV:false,bright:100,contrast:100,opacity:60};
+let editHistory = [JSON.stringify(editTransform)], editHistoryIndex = 0;
+let drawTransform = {x:0,y:0,scale:100,rotate:0,flipH:false,flipV:false,opacity:60,bright:100,contrast:100};
+let drawHistory = [], drawHistoryIndex = -1;
+let cropState = {active:false, rect:null};
+let libSelectedCat = 'alle';
+
+/* ------------------------------------------------------------------
+   2. UTIL
+------------------------------------------------------------------ */
+function getLS(key, fallback){
+  try{ const raw=localStorage.getItem(key); return raw===null?fallback:JSON.parse(raw); }
+  catch(e){ return fallback; }
+}
+function setLS(key, value){
+  try{ localStorage.setItem(key, JSON.stringify(value)); }
+  catch(e){ console.warn('Axcarion: Speichern fehlgeschlagen', e); toast('Speichern nicht möglich (Speicher voll?)'); }
+}
+function uid(){ return Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
+function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
+function wrapDeg(d){ d=d%360; if(d>180)d-=360; if(d<-180)d+=360; return d; }
+function dist(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
+function angleOf(a,b){ return Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI; }
+function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s==null?'':s; return d.innerHTML; }
+function formatDate(ts){
+  const d=new Date(ts);
+  return d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'})+' · '+d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+}
+function toast(msg){
+  const host=document.getElementById('toast-host');
+  const t=document.createElement('div'); t.className='toast'; t.textContent=msg;
+  host.appendChild(t);
+  requestAnimationFrame(()=>t.classList.add('show'));
+  setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(),300); }, 2400);
+}
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  state.screen=id;
+}
+function goTo(id){
+  if(state.screen!==id) state.navStack.push(state.screen);
+  showScreen(id);
+}
+function goBack(){
+  if(state.drawMode==='camera' && state.screen==='screen-draw'){ stopCamera(); }
+  const prev = state.navStack.pop() || 'screen-menu';
+  showScreen(prev);
+}
+
+/* ------------------------------------------------------------------
+   3. ICONS (kleine Inline-SVGs für Kacheln, Onboarding, UI)
+------------------------------------------------------------------ */
+const ICONS = {
+  face:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8"/><path d="M9 10h.01M15 10h.01M8.5 15c1 1 2.2 1.5 3.5 1.5s2.5-.5 3.5-1.5" stroke-linecap="round"/></svg>',
+  spark:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3l1.8 5.4L19 10l-5.2 1.6L12 17l-1.8-5.4L5 10l5.2-1.6z" stroke-linejoin="round"/></svg>',
+  paw:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="7" cy="8" r="1.6"/><circle cx="12" cy="6" r="1.6"/><circle cx="17" cy="8" r="1.6"/><path d="M12 12c3 0 5.5 2.2 5.5 4.6 0 1.8-1.6 2.9-3.4 2.4-1.2-.3-2.8-.3-4 0-1.9.5-3.6-.6-3.6-2.4C6.5 14.2 9 12 12 12z"/></svg>',
+  person:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="7" r="3.4"/><path d="M5 21c0-4 3-6.5 7-6.5s7 2.5 7 6.5" stroke-linecap="round"/></svg>',
+  car:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 16V12l2-5h12l2 5v4" stroke-linejoin="round"/><path d="M4 16h16M6 16v2M18 16v2" stroke-linecap="round"/><circle cx="7.5" cy="16" r="1.4"/><circle cx="16.5" cy="16" r="1.4"/></svg>',
+  mountain:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 18l6-9 4 5 2-3 6 7z" stroke-linejoin="round"/><circle cx="17" cy="6" r="2"/></svg>',
+  circle:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="7.5"/></svg>',
+  diamond:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3l7 7-7 11-7-11z" stroke-linejoin="round"/></svg>',
+  mandala:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M12 4v4M12 16v4M4 12h4M16 12h4"/></svg>',
+  vase:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 3h6M10 3c0 2-2 3-2 6s1.5 4 4 4 4-1.5 4-4-2-4-2-6" stroke-linejoin="round"/><path d="M8 21h8l-1.2-8h-5.6z" stroke-linejoin="round"/></svg>',
+  bubble:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 5h16v10H9l-4 4v-4H4z" stroke-linejoin="round"/></svg>',
+  upload:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 15V5M8 9l4-4 4 4" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" stroke-linecap="round"/></svg>',
+  image:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 15l-5-5-9 9" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  move:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3v18M3 12h18M6 6l-3 6 3 6M18 6l3 6-3 6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  camera:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 8h3l2-2h6l2 2h3v11H4z" stroke-linejoin="round"/><circle cx="12" cy="13.5" r="3.5"/></svg>',
+  lock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3" stroke-linecap="round"/></svg>',
+  opacity:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3c4 5 6 8 6 11a6 6 0 1 1-12 0c0-3 2-6 6-11z"/></svg>',
+  pencil:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 20l1-4L15 6l4 4L9 20z" stroke-linejoin="round"/><path d="M13 8l3 3" stroke-linecap="round"/></svg>'
+};
+
+const CATEGORIES = [
+  {id:'cartoon', name:'Cartoon', icon:ICONS.face, tint:'rgba(255,107,74,0.28)'},
+  {id:'anime', name:'Anime', icon:ICONS.spark, tint:'rgba(124,140,224,0.28)'},
+  {id:'tiere', name:'Tiere', icon:ICONS.paw, tint:'rgba(183,226,75,0.22)'},
+  {id:'menschen', name:'Menschen', icon:ICONS.person, tint:'rgba(255,107,74,0.2)'},
+  {id:'fahrzeuge', name:'Fahrzeuge', icon:ICONS.car, tint:'rgba(124,140,224,0.22)'},
+  {id:'landschaften', name:'Landschaften', icon:ICONS.mountain, tint:'rgba(183,226,75,0.2)'},
+  {id:'einfach', name:'Einfache Motive', icon:ICONS.circle, tint:'rgba(255,107,74,0.18)'},
+  {id:'fortgeschritten', name:'Fortgeschrittene Motive', icon:ICONS.diamond, tint:'rgba(124,140,224,0.24)'},
+  {id:'mandalas', name:'Mandalas &amp; Muster', icon:ICONS.mandala, tint:'rgba(183,226,75,0.24)'},
+  {id:'objekte', name:'Objekte &amp; Stillleben', icon:ICONS.vase, tint:'rgba(255,107,74,0.2)'},
+  {id:'comic', name:'Comic &amp; Manga', icon:ICONS.bubble, tint:'rgba(124,140,224,0.2)'},
+  {id:'eigene', name:'Eigene Bilder', icon:ICONS.upload, tint:'rgba(183,226,75,0.2)'}
+];
+
+/* ------------------------------------------------------------------
+   4. DEMO-BIBLIOTHEK (Original-Linien-Grafiken zum Nachzeichnen)
+   Hinweis: Alle Vorlagen sind einfache, selbst erzeugte Vektor-
+   Zeichnungen (keine fremden Bilder) und dienen als Demo-Bestand.
+------------------------------------------------------------------ */
+function lineArt(inner){
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" stroke="#4a4436" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
+}
+function svgToDataUrl(svg){ return 'data:image/svg+xml,'+encodeURIComponent(svg); }
+
+const LIBRARY = [
+  {id:'c1', category:'cartoon', name:'Cartoon-Gesicht', tags:['gesicht','lachen'], svg:lineArt('<circle cx="50" cy="52" r="30"/><circle cx="40" cy="46" r="3" fill="#4a4436"/><circle cx="60" cy="46" r="3" fill="#4a4436"/><path d="M36 60c6 8 22 8 28 0"/><path d="M28 30c4-8 12-10 14-4M72 30c-4-8-12-10-14-4"/>')},
+  {id:'c2', category:'cartoon', name:'Cartoon-Stern', tags:['stern'], svg:lineArt('<path d="M50 15l9 24 25 2-19 17 6 25-21-14-21 14 6-25-19-17 25-2z"/><circle cx="43" cy="48" r="2.4" fill="#4a4436"/><circle cx="57" cy="48" r="2.4" fill="#4a4436"/><path d="M44 56c3 3 9 3 12 0"/>')},
+  {id:'c3', category:'cartoon', name:'Cartoon-Roboter', tags:['roboter'], svg:lineArt('<rect x="30" y="30" width="40" height="34" rx="6"/><circle cx="42" cy="46" r="4"/><circle cx="58" cy="46" r="4"/><path d="M40 56h20"/><path d="M50 30V18M42 18h16"/><rect x="22" y="40" width="8" height="18" rx="3"/><rect x="70" y="40" width="8" height="18" rx="3"/>')},
+
+  {id:'a1', category:'anime', name:'Anime-Gesicht', tags:['anime','gesicht'], svg:lineArt('<path d="M32 45c0-16 8-26 18-26s18 10 18 26c0 18-8 30-18 30s-18-12-18-30z"/><path d="M38 44c2-4 8-4 10 0M52 44c2-4 8-4 10 0"/><path d="M40 42v8M60 42v8"/><path d="M22 40c4-10 8-16 10-18M78 40c-4-10-8-16-10-18"/>')},
+  {id:'a2', category:'anime', name:'Anime-Haare', tags:['anime','haare'], svg:lineArt('<path d="M50 20c-14 0-26 10-26 24 0 6 2 10 4 14-2-10 2-16 6-18-2 6 0 10 3 12-1-6 2-10 6-11-1 5 1 9 4 11-1-6 3-10 7-10-1 5 2 9 5 10 3-8 5-14 5-20 0-14-10-24-24-24z"/>')},
+  {id:'a3', category:'anime', name:'Chibi-Figur', tags:['chibi','anime'], svg:lineArt('<circle cx="50" cy="38" r="20"/><ellipse cx="50" cy="75" rx="16" ry="14"/><circle cx="43" cy="36" r="2.4" fill="#4a4436"/><circle cx="57" cy="36" r="2.4" fill="#4a4436"/><path d="M44 44c3 2 9 2 12 0"/>')},
+
+  {id:'t1', category:'tiere', name:'Katze', tags:['katze','tier'], svg:lineArt('<circle cx="50" cy="55" r="22"/><path d="M32 40 24 20l16 10M68 40l8-20-16 10"/><circle cx="43" cy="52" r="2.4" fill="#4a4436"/><circle cx="57" cy="52" r="2.4" fill="#4a4436"/><path d="M50 58l-3 3h6z"/><path d="M20 58h16M20 64h14M64 58h16M66 64h14"/>')},
+  {id:'t2', category:'tiere', name:'Hund', tags:['hund','tier'], svg:lineArt('<circle cx="50" cy="55" r="22"/><path d="M30 42c-8-2-12 6-8 14M70 42c8-2 12 6 8 14"/><circle cx="43" cy="52" r="2.4" fill="#4a4436"/><circle cx="57" cy="52" r="2.4" fill="#4a4436"/><ellipse cx="50" cy="62" rx="4" ry="3" fill="#4a4436"/><path d="M46 66c2 2 6 2 8 0"/>')},
+  {id:'t3', category:'tiere', name:'Eule', tags:['eule','tier','vogel'], svg:lineArt('<ellipse cx="50" cy="55" rx="24" ry="26"/><circle cx="40" cy="48" r="9"/><circle cx="60" cy="48" r="9"/><circle cx="40" cy="48" r="3" fill="#4a4436"/><circle cx="60" cy="48" r="3" fill="#4a4436"/><path d="M46 58l4 6 4-6"/><path d="M50 22l-6 8h12z"/>')},
+
+  {id:'m1', category:'menschen', name:'Porträt', tags:['gesicht','portrait','mensch'], svg:lineArt('<path d="M35 45c0-16 7-27 15-27s15 11 15 27c0 20-7 33-15 33s-15-13-15-33z"/><path d="M40 44h4M56 44h4"/><path d="M48 48v8h4"/><path d="M42 62c3 3 13 3 16 0"/><path d="M28 40c2-10 6-16 10-19M72 40c-2-10-6-16-10-19"/>')},
+  {id:'m2', category:'menschen', name:'Ganzkörper', tags:['figur','koerper','mensch'], svg:lineArt('<circle cx="50" cy="18" r="9"/><path d="M50 27v28M50 35l-16 10M50 35l16 10M50 55l-10 30M50 55l10 30"/>')},
+  {id:'m3', category:'menschen', name:'Hand', tags:['hand','mensch'], svg:lineArt('<path d="M40 80V50c0-4 3-6 5-6s5 2 5 6v-8c0-4 3-6 5-6s5 2 5 6v6c0-4 3-6 5-6s5 2 5 6v10c3-2 8-1 8 4v14c0 8-6 14-14 14H50c-6 0-10-3-10-8z"/>')},
+
+  {id:'f1', category:'fahrzeuge', name:'Auto', tags:['auto','fahrzeug'], svg:lineArt('<path d="M15 62h6l6-14c2-4 6-6 10-6h26c4 0 8 2 10 6l6 14h6"/><path d="M15 62v8h6v-8M79 62v8h6v-8"/><circle cx="32" cy="70" r="7"/><circle cx="68" cy="70" r="7"/><path d="M27 48h46"/>')},
+  {id:'f2', category:'fahrzeuge', name:'Motorrad', tags:['motorrad','fahrzeug'], svg:lineArt('<circle cx="26" cy="70" r="12"/><circle cx="74" cy="70" r="12"/><path d="M26 70h20l10-24h16M46 70l14-24M60 46h14l6 6"/><path d="M20 46h14v10"/>')},
+  {id:'f3', category:'fahrzeuge', name:'Segelboot', tags:['boot','segelboot'], svg:lineArt('<path d="M20 68h60l-8 12H28z"/><path d="M50 68V20"/><path d="M50 24l22 40H50z"/><path d="M50 30l-16 34h16z"/>')},
+
+  {id:'l1', category:'landschaften', name:'Berge', tags:['berge','landschaft'], svg:lineArt('<path d="M10 75l22-32 14 16 10-12 34 28z"/><circle cx="74" cy="26" r="8"/><path d="M6 76h88"/>')},
+  {id:'l2', category:'landschaften', name:'Baum am See', tags:['baum','see','landschaft'], svg:lineArt('<path d="M6 70h88"/><path d="M30 70V40M30 40c-8 0-14-6-14-12 6 2 10 0 14-4 4 4 8 6 14 4 0 6-6 12-14 12z"/><path d="M60 70l14-30 14 30z"/>')},
+  {id:'l3', category:'landschaften', name:'Strand', tags:['strand','landschaft','meer'], svg:lineArt('<path d="M6 66c10-4 18 4 28 0s18 4 28 0 18 4 32 0"/><path d="M70 66V30M70 32c10-2 14 4 14 10-8 2-12-2-14-6"/><path d="M6 74h88"/>')},
+
+  {id:'e1', category:'einfach', name:'Herz', tags:['herz','einfach'], svg:lineArt('<path d="M50 78S18 56 18 34c0-10 8-16 16-16 8 0 14 6 16 12 2-6 8-12 16-12 8 0 16 6 16 16 0 22-32 44-32 44z"/>')},
+  {id:'e2', category:'einfach', name:'Blume', tags:['blume','einfach'], svg:lineArt('<circle cx="50" cy="45" r="8"/><ellipse cx="50" cy="24" rx="9" ry="13"/><ellipse cx="50" cy="66" rx="9" ry="13"/><ellipse cx="29" cy="45" rx="13" ry="9"/><ellipse cx="71" cy="45" rx="13" ry="9"/><path d="M50 53v32"/>')},
+  {id:'e3', category:'einfach', name:'Stern', tags:['stern','einfach'], svg:lineArt('<path d="M50 12l10 26 28 2-22 19 7 28-23-15-23 15 7-28-22-19 28-2z"/>')},
+
+  {id:'p1', category:'fortgeschritten', name:'Drache', tags:['drache','fantasy'], svg:lineArt('<path d="M20 60c6-16 18-26 30-26 4-10 14-14 22-10-4 4-6 8-6 12 8 2 14 8 16 16-6-4-12-4-16 0 6 4 8 10 6 16-6-8-14-10-20-6 4 8 2 16-4 20-2-8-8-14-16-14-8 0-14 4-18 10-2-8 0-14 6-18z"/><circle cx="34" cy="46" r="2" fill="#4a4436"/>')},
+  {id:'p2', category:'fortgeschritten', name:'Burg', tags:['burg','schloss','fantasy'], svg:lineArt('<path d="M14 80V50h10v-8h6v8h6V38h6v12h16V38h6v12h6v-8h6v8h10v30z"/><path d="M14 80h72"/><path d="M44 80V60h12v20"/>')},
+  {id:'p3', category:'fortgeschritten', name:'Phönix', tags:['phoenix','vogel','fantasy'], svg:lineArt('<path d="M50 70c-6-4-10-10-10-18 0-10 8-18 10-26 2 8 10 16 10 26 0 8-4 14-10 18z"/><path d="M40 50c-10-2-18-10-22-20 10 0 18 6 22 14M60 50c10-2 18-10 22-20-10 0-18 6-22 14"/><path d="M50 70l-6 14M50 70l6 14"/>')},
+
+  {id:'md1', category:'mandalas', name:'Kreis-Mandala', tags:['mandala','muster'], svg:lineArt('<circle cx="50" cy="50" r="34"/><circle cx="50" cy="50" r="22"/><circle cx="50" cy="50" r="10"/><path d="M50 16v8M50 76v8M16 50h8M76 50h8M27 27l6 6M67 67l6 6M73 27l-6 6M33 67l-6 6"/>')},
+  {id:'md2', category:'mandalas', name:'Blüten-Mandala', tags:['mandala','blume','muster'], svg:lineArt('<circle cx="50" cy="50" r="6"/><ellipse cx="50" cy="30" rx="7" ry="14"/><ellipse cx="50" cy="30" rx="7" ry="14" transform="rotate(60 50 50)"/><ellipse cx="50" cy="30" rx="7" ry="14" transform="rotate(120 50 50)"/><ellipse cx="50" cy="30" rx="7" ry="14" transform="rotate(180 50 50)"/><ellipse cx="50" cy="30" rx="7" ry="14" transform="rotate(240 50 50)"/><ellipse cx="50" cy="30" rx="7" ry="14" transform="rotate(300 50 50)"/><circle cx="50" cy="50" r="34"/>')},
+
+  {id:'o1', category:'objekte', name:'Vase mit Blumen', tags:['vase','stillleben'], svg:lineArt('<path d="M40 78h20l-3-24h-14z"/><path d="M42 54c-8-6-6-16 0-20M58 54c8-6 6-16 0-20M50 54V30"/><circle cx="50" cy="24" r="6"/><circle cx="40" cy="30" r="5"/><circle cx="60" cy="30" r="5"/>')},
+  {id:'o2', category:'objekte', name:'Bücherstapel', tags:['buch','stillleben'], svg:lineArt('<rect x="24" y="62" width="52" height="10" rx="2"/><rect x="28" y="50" width="44" height="10" rx="2"/><rect x="32" y="38" width="36" height="10" rx="2"/>')},
+
+  {id:'cm1', category:'comic', name:'Comic-Sprechblase', tags:['comic','sprechblase'], svg:lineArt('<rect x="16" y="20" width="68" height="42" rx="8"/><path d="M32 62l-6 14 16-14z"/><path d="M32 38h36M32 48h24"/>')},
+  {id:'cm2', category:'comic', name:'Comic-Held', tags:['comic','held','manga'], svg:lineArt('<circle cx="50" cy="30" r="12"/><path d="M50 42v26M50 50l-16 8M50 50l16 8M50 68l-10 14M50 68l10 14"/><path d="M30 34c-6 6-6 16 2 20M70 34c6 6 6 16-2 20"/>')}
+];
+
+/* ------------------------------------------------------------------
+   5. LOADING SCREEN
+------------------------------------------------------------------ */
+const TIPS = [
+  'Tipp: Stelle dein Handy möglichst ruhig auf, damit die Vorlage stabil bleibt.',
+  'Tipp: Im Kamera-Modus hilft eine Handyhalterung für ruhigere Aufnahmen.',
+  'Tipp: Mit „Sperren“ verrutscht deine Vorlage nicht mehr beim Zeichnen.',
+  'Tipp: Nutze das Raster, um Proportionen leichter zu übertragen.',
+  'Neu: Speichere deine Projekte, um später genau dort weiterzumachen.',
+  'Tipp: 50&nbsp;% Transparenz eignet sich für die meisten Papierstärken.',
+  'Neu: Der Profi-Modus schaltet Feineinstellungen wie Kontrast frei.'
+];
+function runLoading(){
+  const bar=document.getElementById('load-bar'), pct=document.getElementById('load-pct'), tipEl=document.getElementById('load-tip');
+  let progress=0, tipIndex=0;
+  function showTip(){
+    tipEl.classList.remove('show');
+    setTimeout(()=>{ tipEl.innerHTML=TIPS[tipIndex%TIPS.length]; tipEl.classList.add('show'); tipIndex++; }, 220);
+  }
+  showTip();
+  const tipTimer=setInterval(showTip, 1400);
+  const timer=setInterval(()=>{
+    progress += Math.random()*14+6;
+    if(progress>=100) progress=100;
+    bar.style.width=progress+'%';
+    pct.textContent=Math.round(progress)+'%';
+    if(progress>=100){
+      clearInterval(timer); clearInterval(tipTimer);
+      setTimeout(initFlow, 380);
+    }
+  }, 220);
+}
+
+/* ------------------------------------------------------------------
+   6. CONSENT / PAYWALL / ONBOARDING (App-Start-Flow)
+------------------------------------------------------------------ */
+function initFlow(){
+  const consented = getLS('axc_consent', false);
+  if(!consented){
+    showScreen('screen-paywall');
+    document.getElementById('overlay-consent').classList.add('active');
+  } else {
+    proceedAfterConsent();
+  }
+}
+document.getElementById('btn-consent-accept').addEventListener('click', ()=>{
+  setLS('axc_consent', true);
+  document.getElementById('overlay-consent').classList.remove('active');
+  proceedAfterConsent();
+});
+function proceedAfterConsent(){
+  const trial=getLS('axc_trial', null);
+  if(!trial){ showScreen('screen-paywall'); }
+  else { afterPaywall(); }
+}
+function afterPaywall(){
+  const onboarded=getLS('axc_onboarded', false);
+  if(!onboarded){ startOnboarding(); }
+  else { showScreen('screen-menu'); }
+}
+document.querySelectorAll('.plan').forEach(p=>p.addEventListener('click', ()=>{
+  document.querySelectorAll('.plan').forEach(x=>x.classList.remove('selected'));
+  p.classList.add('selected');
+}));
+document.getElementById('btn-start-trial').addEventListener('click', ()=>{
+  const selected=document.querySelector('.plan.selected');
+  // NATIVE-ANDROID: Hier wird später Google Play Billing (echte, sichere Zahlung
+  // + serverseitige Prüfung des Premium-Zugangs) angebunden. Aktuell Simulation.
+  setLS('axc_trial', {plan:selected?selected.dataset.plan:'5m', trialStart:Date.now(), simulated:true});
+  toast('Testphase gestartet (simuliert)');
+  afterPaywall();
+});
+document.getElementById('btn-skip-trial').addEventListener('click', ()=>{
+  setLS('axc_trial', {plan:null, trialStart:Date.now(), simulated:true, skipped:true});
+  afterPaywall();
+});
+
+const ONBOARDING_STEPS = [
+  {icon:ICONS.image, title:'Bild auswählen', text:'Wähle eine Vorlage aus der Bibliothek, deiner Galerie oder per Suche.'},
+  {icon:ICONS.move, title:'Bild positionieren', text:'Verschiebe, skaliere und drehe die Vorlage genau so, wie du sie brauchst.'},
+  {icon:ICONS.camera, title:'Kamera aktivieren', text:'Wechsle in den Kamera-Modus, um die Vorlage direkt über dein Papier zu legen.'},
+  {icon:ICONS.lock, title:'Vorlage fixieren', text:'Sperre die Position mit einem Tipp, damit nichts mehr verrutscht.'},
+  {icon:ICONS.opacity, title:'Transparenz einstellen', text:'Reguliere, wie stark die Vorlage durchscheint — für den perfekten Kontrast.'},
+  {icon:ICONS.pencil, title:'Loslegen', text:'Zeichne bequem nach — und speichere dein Projekt jederzeit.'}
+];
+let obIndex=0;
+function startOnboarding(){
+  obIndex=0;
+  document.getElementById('overlay-onboarding').classList.add('active');
+  renderOnboardingStep();
+}
+function renderOnboardingStep(){
+  const s=ONBOARDING_STEPS[obIndex];
+  const el=document.getElementById('overlay-onboarding');
+  el.innerHTML = `<div class="ob-card">
+    <div class="ob-icon">${s.icon}</div>
+    <div class="ob-step-label">Schritt ${obIndex+1} von ${ONBOARDING_STEPS.length}</div>
+    <h2>${s.title}</h2>
+    <p>${s.text}</p>
+    <div class="ob-dots">${ONBOARDING_STEPS.map((_,i)=>`<span class="${i===obIndex?'active':''}"></span>`).join('')}</div>
+    <div class="ob-actions">
+      <button class="btn btn-primary btn-block" id="ob-next">${obIndex===ONBOARDING_STEPS.length-1?'Fertig':'Weiter'}</button>
+      <button class="btn btn-text btn-block" id="ob-skip">Tutorial überspringen</button>
+    </div>
+  </div>`;
+  document.getElementById('ob-next').addEventListener('click', ()=>{
+    if(obIndex<ONBOARDING_STEPS.length-1){ obIndex++; renderOnboardingStep(); }
+    else finishOnboarding();
+  });
+  document.getElementById('ob-skip').addEventListener('click', finishOnboarding);
+}
+function finishOnboarding(){
+  setLS('axc_onboarded', true);
+  document.getElementById('overlay-onboarding').classList.remove('active');
+  showScreen('screen-menu');
+}
+
+/* ------------------------------------------------------------------
+   7. HAUPTMENÜ
+------------------------------------------------------------------ */
+function renderMosaic(){
+  const el=document.getElementById('category-mosaic');
+  el.innerHTML = CATEGORIES.map((c,i)=>`
+    <div class="tile ${i===0||i===7?'big':''}" data-cat="${c.id}" style="--tint:${c.tint}">
+      <div class="tile-glow"></div>
+      <div class="tile-icon">${c.icon}</div>
+      <div class="tile-name">${c.name}</div>
+    </div>`).join('');
+  el.querySelectorAll('.tile').forEach(t=>t.addEventListener('click', ()=>{
+    const cat=t.dataset.cat;
+    if(cat==='eigene'){ openLibrary('galerie'); } else { openLibrary('bibliothek', cat); }
+  }));
+}
+document.getElementById('btn-menu-settings').addEventListener('click', ()=>{ syncSettingsScreen(); goTo('screen-settings'); });
+document.getElementById('btn-menu-mode').addEventListener('click', ()=>{
+  state.proMode=!state.proMode; setLS('axc_pro_mode', state.proMode); applyProMode();
+  toast(state.proMode?'Profi-Modus aktiviert':'Anfänger-Modus aktiviert');
+});
+function openProjects(tab){
+  document.querySelectorAll('#screen-projects .lib-tab').forEach(x=>x.classList.toggle('active', x.dataset.ptab===tab));
+  renderProjTab(tab);
+  goTo('screen-projects');
+}
+document.getElementById('chip-continue').addEventListener('click', ()=>openProjects('zuletzt'));
+document.getElementById('chip-projects').addEventListener('click', ()=>openProjects('projekte'));
+document.getElementById('chip-favorites').addEventListener('click', ()=>openProjects('favoriten'));
+
+/* ------------------------------------------------------------------
+   8. BIBLIOTHEK / GALERIE / SUCHE / EIGENE BILDER
+------------------------------------------------------------------ */
+function openLibrary(tab, cat){
+  document.querySelectorAll('.lib-tabs .lib-tab').forEach(x=>x.classList.toggle('active', x.dataset.tab===tab));
+  ['bibliothek','galerie','suche','eigene'].forEach(k=>{
+    document.getElementById('lib-panel-'+k).style.display=(k===tab)?'':'none';
+  });
+  if(cat){ libSelectedCat=cat; renderCatScroller(); renderLibraryGrid(); }
+  if(tab==='eigene') renderOwnGrid();
+  goTo('screen-library');
+}
+document.getElementById('lib-back').addEventListener('click', goBack);
+document.querySelectorAll('#screen-library .lib-tabs .lib-tab').forEach(t=>t.addEventListener('click', ()=>{
+  openLibrary(t.dataset.tab);
+}));
+function renderCatScroller(){
+  const el=document.getElementById('lib-cat-scroller');
+  const cats=[{id:'alle',name:'Alle'}, ...CATEGORIES.filter(c=>c.id!=='eigene')];
+  el.innerHTML = cats.map(c=>`<button class="lib-cat-pill ${c.id===libSelectedCat?'active':''}" data-cat="${c.id}">${c.name}</button>`).join('');
+  el.querySelectorAll('.lib-cat-pill').forEach(p=>p.addEventListener('click', ()=>{
+    libSelectedCat=p.dataset.cat; renderCatScroller(); renderLibraryGrid();
+  }));
+}
+function thumbHtml(item){
+  return `<div class="thumb"><img src="${svgToDataUrl(item.svg)}" alt="${escapeHtml(item.name)}"><span class="thumb-label">${escapeHtml(item.name)}</span></div>`;
+}
+function emptyStateHtml(msg){
+  return `<div class="empty-state" style="grid-column:1/-1;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35" stroke-linecap="round"/></svg><p>${msg}</p></div>`;
+}
+function renderLibraryGrid(){
+  const items = libSelectedCat==='alle' ? LIBRARY : LIBRARY.filter(i=>i.category===libSelectedCat);
+  const grid=document.getElementById('lib-thumb-grid');
+  if(items.length===0){ grid.innerHTML=emptyStateHtml('Noch keine Vorlagen in dieser Kategorie.'); return; }
+  grid.innerHTML = items.map(i=>thumbHtml(i)).join('');
+  grid.querySelectorAll('.thumb').forEach((el,idx)=>el.addEventListener('click', ()=>{
+    openImageInEditor({src:svgToDataUrl(items[idx].svg), name:items[idx].name, category:items[idx].category});
+  }));
+}
+document.getElementById('upload-zone').addEventListener('click', ()=>document.getElementById('file-input').click());
+document.getElementById('file-input').addEventListener('change', e=>{
+  const file=e.target.files[0];
+  if(!file) return;
+  if(!file.type.startsWith('image/')){ toast('Bitte eine Bilddatei auswählen.'); return; }
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const src=ev.target.result;
+    const name=file.name.replace(/\.[^.]+$/,'') || 'Eigenes Bild';
+    let own=getLS('axc_own_images',[]);
+    own.unshift({id:uid(), src, name, ts:Date.now()});
+    own=own.slice(0,30);
+    setLS('axc_own_images', own);
+    openImageInEditor({src, name, category:'eigene'});
+  };
+  reader.onerror=()=>toast('Bild konnte nicht gelesen werden.');
+  reader.readAsDataURL(file);
+});
+function renderOwnGrid(){
+  const own=getLS('axc_own_images',[]);
+  const grid=document.getElementById('own-thumb-grid');
+  if(own.length===0){ grid.innerHTML=emptyStateHtml('Noch keine eigenen Bilder hochgeladen.'); return; }
+  grid.innerHTML = own.map(o=>`<div class="thumb"><img src="${o.src}" alt="${escapeHtml(o.name)}"></div>`).join('');
+  grid.querySelectorAll('.thumb').forEach((el,idx)=>el.addEventListener('click', ()=>{
+    openImageInEditor({src:own[idx].src, name:own[idx].name, category:'eigene'});
+  }));
+}
+document.getElementById('search-btn').addEventListener('click', runSearch);
+document.getElementById('search-input').addEventListener('keydown', e=>{ if(e.key==='Enter') runSearch(); });
+function runSearch(){
+  const q=document.getElementById('search-input').value.trim().toLowerCase();
+  const results=document.getElementById('search-results');
+  if(!q){ results.innerHTML=''; return; }
+  // NATIVE-ANDROID/SPÄTERE WEB-VERSION: Hier soll eine echte Bildersuche mit
+  // geprüften Nutzungsrechten (z.B. lizenzierte Bild-API inkl. Quellenangabe)
+  // angebunden werden. Aktuell: Demo-Suche in der lokalen Axcarion-Bibliothek.
+  const found = LIBRARY.filter(i=>i.name.toLowerCase().includes(q) || (i.tags||[]).some(t=>t.includes(q)));
+  if(found.length===0){ results.innerHTML=emptyStateHtml('Keine Treffer in der Demo-Bibliothek für „'+escapeHtml(q)+'“.'); return; }
+  results.innerHTML = found.map(i=>thumbHtml(i)).join('');
+  results.querySelectorAll('.thumb').forEach((el,idx)=>el.addEventListener('click', ()=>{
+    openImageInEditor({src:svgToDataUrl(found[idx].svg), name:found[idx].name, category:found[idx].category});
+  }));
+}
+
+/* ------------------------------------------------------------------
+   9. RECENTS / FAVORITES
+------------------------------------------------------------------ */
+function addRecent(imgObj){
+  let recents=getLS('axc_recents',[]);
+  recents=recents.filter(r=>r.src!==imgObj.src);
+  recents.unshift({id:uid(), name:imgObj.name, src:imgObj.src, category:imgObj.category, ts:Date.now()});
+  recents=recents.slice(0,10);
+  setLS('axc_recents', recents);
+}
+function isFavorite(src){ return getLS('axc_favorites',[]).includes(src); }
+function toggleFavorite(src){
+  let favs=getLS('axc_favorites',[]);
+  favs = favs.includes(src) ? favs.filter(f=>f!==src) : [...favs, src];
+  setLS('axc_favorites', favs);
+}
+
+/* ------------------------------------------------------------------
+   10. EDITOR (Zuschnitt, Drehen, Spiegeln, Helligkeit/Kontrast)
+------------------------------------------------------------------ */
+function openImageInEditor(imgObj){
+  if(!imgObj || !imgObj.src){ toast('Bitte zuerst ein Bild auswählen.'); return; }
+  state.currentImage = {src:imgObj.src, name:imgObj.name||'Vorlage', category:imgObj.category||'eigene'};
+  addRecent(state.currentImage);
+  editTransform = {rotate:0,scale:100,flipH:false,flipV:false,bright:100,contrast:100,opacity:60};
+  editHistory=[JSON.stringify(editTransform)]; editHistoryIndex=0;
+  cropState={active:false, rect:null};
+  document.getElementById('crop-box').style.display='none';
+  document.getElementById('btn-crop-toggle').textContent='Zuschneiden aktivieren';
+  document.querySelectorAll('.tool-tab').forEach(t=>t.classList.toggle('active', t.dataset.tool==='zuschnitt'));
+  document.querySelectorAll('.tool-panel').forEach(p=>p.classList.toggle('active', p.id==='tool-zuschnitt'));
+  const img=document.getElementById('editor-img');
+  img.src=state.currentImage.src;
+  applyEditorPreview();
+  syncEditorSliders();
+  goTo('screen-editor');
+}
+document.getElementById('editor-back').addEventListener('click', goBack);
+document.getElementById('btn-editor-cancel').addEventListener('click', goBack);
+function applyEditorPreview(){
+  const img=document.getElementById('editor-img');
+  const t=editTransform;
+  img.style.transform = `rotate(${t.rotate}deg) scale(${t.scale/100}) scaleX(${t.flipH?-1:1}) scaleY(${t.flipV?-1:1})`;
+  img.style.filter = `brightness(${t.bright}%) contrast(${t.contrast}%)`;
+  img.style.opacity = t.opacity/100;
+}
+function syncEditorSliders(){
+  document.getElementById('edit-rotate').value=editTransform.rotate; document.getElementById('val-rotate').textContent=editTransform.rotate+'°';
+  document.getElementById('edit-scale').value=editTransform.scale; document.getElementById('val-scale').textContent=editTransform.scale+'%';
+  document.getElementById('edit-bright').value=editTransform.bright; document.getElementById('val-bright').textContent=editTransform.bright+'%';
+  document.getElementById('edit-contrast').value=editTransform.contrast; document.getElementById('val-contrast').textContent=editTransform.contrast+'%';
+  document.getElementById('edit-opacity').value=editTransform.opacity; document.getElementById('val-opacity-edit').textContent=editTransform.opacity+'%';
+}
+function pushEditHistory(){
+  editHistory=editHistory.slice(0,editHistoryIndex+1);
+  editHistory.push(JSON.stringify(editTransform));
+  if(editHistory.length>30) editHistory.shift();
+  editHistoryIndex=editHistory.length-1;
+}
+function undoEdit(){
+  if(editHistoryIndex<=0){ toast('Nichts rückgängig zu machen'); return; }
+  editHistoryIndex--; editTransform=JSON.parse(editHistory[editHistoryIndex]);
+  applyEditorPreview(); syncEditorSliders();
+}
+function redoEdit(){
+  if(editHistoryIndex>=editHistory.length-1){ toast('Nichts zu wiederholen'); return; }
+  editHistoryIndex++; editTransform=JSON.parse(editHistory[editHistoryIndex]);
+  applyEditorPreview(); syncEditorSliders();
+}
+document.getElementById('editor-undo').addEventListener('click', undoEdit);
+document.getElementById('editor-redo').addEventListener('click', redoEdit);
+
+document.querySelectorAll('.tool-tab').forEach(t=>t.addEventListener('click', ()=>{
+  document.querySelectorAll('.tool-tab').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  document.querySelectorAll('.tool-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tool-'+t.dataset.tool).classList.add('active');
+  if(t.dataset.tool!=='zuschnitt' && cropState.active){ applyCrop(); }
+}));
+document.getElementById('edit-rotate').addEventListener('input', e=>{ editTransform.rotate=Number(e.target.value); document.getElementById('val-rotate').textContent=e.target.value+'°'; applyEditorPreview(); });
+document.getElementById('edit-rotate').addEventListener('change', pushEditHistory);
+document.getElementById('edit-scale').addEventListener('input', e=>{ editTransform.scale=Number(e.target.value); document.getElementById('val-scale').textContent=e.target.value+'%'; applyEditorPreview(); });
+document.getElementById('edit-scale').addEventListener('change', pushEditHistory);
+document.getElementById('edit-bright').addEventListener('input', e=>{ editTransform.bright=Number(e.target.value); document.getElementById('val-bright').textContent=e.target.value+'%'; applyEditorPreview(); });
+document.getElementById('edit-bright').addEventListener('change', pushEditHistory);
+document.getElementById('edit-contrast').addEventListener('input', e=>{ editTransform.contrast=Number(e.target.value); document.getElementById('val-contrast').textContent=e.target.value+'%'; applyEditorPreview(); });
+document.getElementById('edit-contrast').addEventListener('change', pushEditHistory);
+document.getElementById('edit-opacity').addEventListener('input', e=>{ editTransform.opacity=Number(e.target.value); document.getElementById('val-opacity-edit').textContent=e.target.value+'%'; applyEditorPreview(); });
+document.getElementById('edit-opacity').addEventListener('change', pushEditHistory);
+document.getElementById('btn-flip-h').addEventListener('click', ()=>{ editTransform.flipH=!editTransform.flipH; applyEditorPreview(); pushEditHistory(); });
+document.getElementById('btn-flip-v').addEventListener('click', ()=>{ editTransform.flipV=!editTransform.flipV; applyEditorPreview(); pushEditHistory(); });
+
+/* --- Zuschnitt (echtes Canvas-Cropping) --- */
+function stageRect(){ return document.getElementById('editor-stage').getBoundingClientRect(); }
+function imgRect(){ return document.getElementById('editor-img').getBoundingClientRect(); }
+function imgBoundsInStage(){
+  const ir=imgRect(), sr=stageRect();
+  return {left:ir.left-sr.left, top:ir.top-sr.top, right:ir.left-sr.left+ir.width, bottom:ir.top-sr.top+ir.height};
+}
+function initCropBox(){
+  const ir=imgRect(), sr=stageRect(), inset=0.12;
+  cropState.rect = {
+    left: ir.left-sr.left+ir.width*inset,
+    top: ir.top-sr.top+ir.height*inset,
+    width: ir.width*(1-2*inset),
+    height: ir.height*(1-2*inset)
+  };
+  renderCropBox();
+}
+function renderCropBox(){
+  const box=document.getElementById('crop-box'), r=cropState.rect;
+  box.style.left=r.left+'px'; box.style.top=r.top+'px';
+  box.style.width=r.width+'px'; box.style.height=r.height+'px';
+}
+document.getElementById('btn-crop-toggle').addEventListener('click', ()=>{
+  const box=document.getElementById('crop-box'), btn=document.getElementById('btn-crop-toggle');
+  cropState.active=!cropState.active;
+  if(cropState.active){ initCropBox(); box.style.display='block'; btn.textContent='Zuschnitt übernehmen'; }
+  else { applyCrop(); btn.textContent='Zuschneiden aktivieren'; }
+});
+document.getElementById('btn-crop-reset').addEventListener('click', ()=>{ if(cropState.active) initCropBox(); });
+let dragHandle=null, dragStart=null;
+document.querySelectorAll('.crop-handle').forEach(h=>{
+  h.addEventListener('pointerdown', e=>{
+    dragHandle=h.dataset.h;
+    dragStart={x:e.clientX,y:e.clientY,rect:{...cropState.rect}};
+    h.setPointerCapture(e.pointerId);
+    e.preventDefault(); e.stopPropagation();
+  });
+});
+window.addEventListener('pointermove', e=>{
+  if(!dragHandle) return;
+  const dx=e.clientX-dragStart.x, dy=e.clientY-dragStart.y;
+  let r={...dragStart.rect};
+  const b=imgBoundsInStage(), min=40;
+  if(dragHandle.includes('n')){ r.top=dragStart.rect.top+dy; r.height=dragStart.rect.height-dy; }
+  if(dragHandle.includes('s')){ r.height=dragStart.rect.height+dy; }
+  if(dragHandle.includes('w')){ r.left=dragStart.rect.left+dx; r.width=dragStart.rect.width-dx; }
+  if(dragHandle.includes('e')){ r.width=dragStart.rect.width+dx; }
+  if(r.width<min) r.width=min;
+  if(r.height<min) r.height=min;
+  if(r.left<b.left){ r.width-=(b.left-r.left); r.left=b.left; }
+  if(r.top<b.top){ r.height-=(b.top-r.top); r.top=b.top; }
+  if(r.left+r.width>b.right) r.width=b.right-r.left;
+  if(r.top+r.height>b.bottom) r.height=b.bottom-r.top;
+  cropState.rect=r; renderCropBox();
+});
+window.addEventListener('pointerup', ()=>{ dragHandle=null; });
+function applyCrop(){
+  if(!cropState.rect) return;
+  const img=document.getElementById('editor-img');
+  const ir=imgRect(), sr=stageRect();
+  const b={left:ir.left-sr.left, top:ir.top-sr.top};
+  const scaleX=img.naturalWidth/ir.width, scaleY=img.naturalHeight/ir.height;
+  const sx=(cropState.rect.left-b.left)*scaleX, sy=(cropState.rect.top-b.top)*scaleY;
+  const sw=cropState.rect.width*scaleX, sh=cropState.rect.height*scaleY;
+  if(sw<=0||sh<=0) return;
+  const canvas=document.createElement('canvas');
+  canvas.width=sw; canvas.height=sh;
+  canvas.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+  const dataUrl=canvas.toDataURL('image/png');
+  img.src=dataUrl;
+  state.currentImage.src=dataUrl;
+  document.getElementById('crop-box').style.display='none';
+  toast('Zugeschnitten');
+}
+document.getElementById('btn-start-drawing').addEventListener('click', ()=>{
+  if(cropState.active) applyCrop();
+  goTo('screen-draw');
+  enterDrawScreen(false);
+});
+
+/* ------------------------------------------------------------------
+   11. ZEICHENMODUS (Display &amp; Kamera/AR)
+   NATIVE-ANDROID/AR:
+   Die Positionierung erfolgt hier per manueller Drag-/Pinch-/Rotate-
+   Geste plus "Sperren"-Funktion. In der nativen Android-App soll dies
+   durch echtes AR-Tracking (ARCore Plane-Detection + Anchor) ersetzt
+   werden, damit das Bild automatisch an der erkannten Papierposition
+   fixiert bleibt, auch wenn sich das Smartphone bewegt. Die Transform-
+   Datenstruktur (x, y, scale, rotate, flipH, flipV) bleibt dabei die
+   gemeinsame Zielschnittstelle für Web und nativ.
+------------------------------------------------------------------ */
+function enterDrawScreen(fromProject){
+  if(!state.currentImage){ toast('Bitte zuerst ein Bild auswählen.'); goBack(); return; }
+  document.getElementById('overlay-img').src = state.currentImage.src;
+  if(!fromProject){
+    drawTransform = {
+      x:0, y:0, scale:editTransform.scale, rotate:editTransform.rotate,
+      flipH:editTransform.flipH, flipV:editTransform.flipV,
+      opacity:editTransform.opacity, bright:editTransform.bright, contrast:editTransform.contrast
+    };
+  }
+  state.locked=false;
+  const wrap=document.getElementById('overlay-wrap');
+  wrap.style.pointerEvents='auto';
+  document.getElementById('btn-lock').classList.remove('locked');
+  applyDrawTransform();
+  syncAllDrawSliders();
+  drawHistory=[JSON.stringify(drawTransform)]; drawHistoryIndex=0;
+  setDrawMode('display');
+  applyProMode();
+}
+function applyDrawTransform(){
+  const wrap=document.getElementById('overlay-wrap'), t=drawTransform;
+  wrap.style.transform = `translate(-50%,-50%) translate(${t.x}px,${t.y}px) scale(${t.scale/100}) rotate(${t.rotate}deg) scaleX(${t.flipH?-1:1}) scaleY(${t.flipV?-1:1})`;
+  const img=document.getElementById('overlay-img');
+  img.style.opacity = t.opacity/100;
+  img.style.filter = `brightness(${t.bright}%) contrast(${t.contrast}%)`;
+}
+function syncAllDrawSliders(){
+  document.getElementById('draw-opacity').value=drawTransform.opacity; document.getElementById('val-opacity-draw').textContent=drawTransform.opacity+'%';
+  document.getElementById('draw-scale').value=drawTransform.scale; document.getElementById('val-scale-draw').textContent=drawTransform.scale+'%';
+  document.getElementById('draw-rotate').value=drawTransform.rotate; document.getElementById('val-rotate-draw').textContent=drawTransform.rotate+'°';
+  document.getElementById('draw-bright').value=drawTransform.bright; document.getElementById('val-bright-draw').textContent=drawTransform.bright+'%';
+  document.getElementById('draw-contrast').value=drawTransform.contrast; document.getElementById('val-contrast-draw').textContent=drawTransform.contrast+'%';
+}
+function pushHistory(){
+  drawHistory=drawHistory.slice(0,drawHistoryIndex+1);
+  drawHistory.push(JSON.stringify(drawTransform));
+  if(drawHistory.length>40) drawHistory.shift();
+  drawHistoryIndex=drawHistory.length-1;
+}
+function undoDraw(){
+  if(drawHistoryIndex<=0){ toast('Nichts rückgängig zu machen'); return; }
+  drawHistoryIndex--; drawTransform=JSON.parse(drawHistory[drawHistoryIndex]);
+  applyDrawTransform(); syncAllDrawSliders();
+}
+function redoDraw(){
+  if(drawHistoryIndex>=drawHistory.length-1){ toast('Nichts zu wiederholen'); return; }
+  drawHistoryIndex++; drawTransform=JSON.parse(drawHistory[drawHistoryIndex]);
+  applyDrawTransform(); syncAllDrawSliders();
+}
+document.getElementById('draw-back').addEventListener('click', goBack);
+
+/* Pointer-Gesten: Verschieben (1 Finger), Skalieren/Drehen (2 Finger) */
+const activePointers=new Map();
+let gestureStart=null;
+const overlayWrapEl = document.getElementById('overlay-wrap');
+function mid(a,b){ return {x:(a.x+b.x)/2, y:(a.y+b.y)/2}; }
+overlayWrapEl.addEventListener('pointerdown', e=>{
+  if(state.locked) return;
+  overlayWrapEl.setPointerCapture(e.pointerId);
+  activePointers.set(e.pointerId, {x:e.clientX,y:e.clientY});
+  if(activePointers.size===1){
+    gestureStart={mode:'pan', startX:e.clientX, startY:e.clientY, origX:drawTransform.x, origY:drawTransform.y};
+  } else if(activePointers.size===2){
+    const pts=[...activePointers.values()];
+    gestureStart={mode:'pinch', d0:dist(pts[0],pts[1]), a0:angleOf(pts[0],pts[1]), scale0:drawTransform.scale, rot0:drawTransform.rotate};
+  }
+});
+overlayWrapEl.addEventListener('pointermove', e=>{
+  if(!activePointers.has(e.pointerId) || state.locked) return;
+  activePointers.set(e.pointerId, {x:e.clientX,y:e.clientY});
+  if(activePointers.size===1 && gestureStart && gestureStart.mode==='pan'){
+    drawTransform.x = gestureStart.origX + (e.clientX-gestureStart.startX);
+    drawTransform.y = gestureStart.origY + (e.clientY-gestureStart.startY);
+    applyDrawTransform();
+  } else if(activePointers.size===2 && gestureStart && gestureStart.mode==='pinch'){
+    const pts=[...activePointers.values()];
+    const d=dist(pts[0],pts[1]), a=angleOf(pts[0],pts[1]);
+    drawTransform.scale = clamp(gestureStart.scale0*(d/gestureStart.d0), 20, 300);
+    drawTransform.rotate = wrapDeg(gestureStart.rot0 + (a-gestureStart.a0));
+    applyDrawTransform(); syncAllDrawSliders();
+  }
+});
+function endOverlayPointer(e){
+  activePointers.delete(e.pointerId);
+  if(activePointers.size===0){ if(gestureStart) pushHistory(); gestureStart=null; }
+  else if(activePointers.size===1){
+    const remaining=[...activePointers.values()][0];
+    gestureStart={mode:'pan', startX:remaining.x, startY:remaining.y, origX:drawTransform.x, origY:drawTransform.y};
+  }
+}
+overlayWrapEl.addEventListener('pointerup', endOverlayPointer);
+overlayWrapEl.addEventListener('pointercancel', endOverlayPointer);
+overlayWrapEl.addEventListener('wheel', e=>{
+  if(state.locked) return;
+  e.preventDefault();
+  drawTransform.scale = clamp(drawTransform.scale - e.deltaY*0.08, 20, 300);
+  applyDrawTransform(); syncAllDrawSliders(); pushHistory();
+}, {passive:false});
+
+/* Slider-Steuerung im Zeichenmodus */
+document.getElementById('draw-opacity').addEventListener('input', e=>{ drawTransform.opacity=Number(e.target.value); document.getElementById('val-opacity-draw').textContent=e.target.value+'%'; applyDrawTransform(); });
+document.getElementById('draw-opacity').addEventListener('change', pushHistory);
+document.getElementById('draw-scale').addEventListener('input', e=>{ drawTransform.scale=Number(e.target.value); document.getElementById('val-scale-draw').textContent=e.target.value+'%'; applyDrawTransform(); });
+document.getElementById('draw-scale').addEventListener('change', pushHistory);
+document.getElementById('draw-rotate').addEventListener('input', e=>{ drawTransform.rotate=Number(e.target.value); document.getElementById('val-rotate-draw').textContent=e.target.value+'°'; applyDrawTransform(); });
+document.getElementById('draw-rotate').addEventListener('change', pushHistory);
+document.getElementById('draw-bright').addEventListener('input', e=>{ drawTransform.bright=Number(e.target.value); document.getElementById('val-bright-draw').textContent=e.target.value+'%'; applyDrawTransform(); });
+document.getElementById('draw-bright').addEventListener('change', pushHistory);
+document.getElementById('draw-contrast').addEventListener('input', e=>{ drawTransform.contrast=Number(e.target.value); document.getElementById('val-contrast-draw').textContent=e.target.value+'%'; applyDrawTransform(); });
+document.getElementById('draw-contrast').addEventListener('change', pushHistory);
+document.getElementById('btn-mirror-h').addEventListener('click', ()=>{ drawTransform.flipH=!drawTransform.flipH; applyDrawTransform(); pushHistory(); });
+document.getElementById('btn-mirror-v').addEventListener('click', ()=>{ drawTransform.flipV=!drawTransform.flipV; applyDrawTransform(); pushHistory(); });
+document.getElementById('btn-undo').addEventListener('click', undoDraw);
+document.getElementById('btn-redo').addEventListener('click', redoDraw);
+document.getElementById('btn-adv-toggle').addEventListener('click', ()=>document.getElementById('dock-adv').classList.toggle('show'));
+document.getElementById('btn-save-project').addEventListener('click', saveProject);
+
+/* Sperren */
+document.getElementById('btn-lock').addEventListener('click', ()=>{
+  state.locked=!state.locked;
+  document.getElementById('overlay-wrap').style.pointerEvents = state.locked?'none':'auto';
+  document.getElementById('btn-lock').classList.toggle('locked', state.locked);
+  document.getElementById('lock-icon').innerHTML = state.locked
+    ? '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v1" stroke-linecap="round"/>'
+    : '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3" stroke-linecap="round"/>';
+  toast(state.locked?'Vorlage fixiert':'Vorlage entsperrt');
+});
+
+/* Raster */
+function renderGrid(){
+  const svg=document.getElementById('grid-overlay');
+  if(state.grid==='off'){ svg.style.display='none'; svg.innerHTML=''; return; }
+  svg.style.display='block';
+  const s='rgba(255,255,255,0.35)';
+  if(state.grid==='small' || state.grid==='large'){
+    const step = state.grid==='small' ? 10 : 25;
+    let html='';
+    for(let i=step;i<100;i+=step){
+      html+=`<line x1="${i}" y1="0" x2="${i}" y2="100" stroke="${s}" stroke-width="0.3"/><line x1="0" y1="${i}" x2="100" y2="${i}" stroke="${s}" stroke-width="0.3"/>`;
+    }
+    svg.innerHTML=html;
+  } else if(state.grid==='cross'){
+    svg.innerHTML=`<line x1="50" y1="0" x2="50" y2="100" stroke="${s}" stroke-width="0.4"/><line x1="0" y1="50" x2="100" y2="50" stroke="${s}" stroke-width="0.4"/><circle cx="50" cy="50" r="14" fill="none" stroke="${s}" stroke-width="0.4"/>`;
+  }
+}
+function cycleGrid(){
+  const order=['off','small','large','cross'];
+  state.grid = order[(order.indexOf(state.grid)+1)%order.length];
+  renderGrid();
+  const labels={off:'aus',small:'klein',large:'groß',cross:'Kreuz'};
+  document.getElementById('grid-state').textContent=labels[state.grid];
+  document.getElementById('btn-grid-basic').classList.toggle('active', state.grid!=='off');
+  document.getElementById('btn-grid').classList.toggle('active', state.grid!=='off');
+}
+document.getElementById('btn-grid-basic').addEventListener('click', cycleGrid);
+document.getElementById('btn-grid').addEventListener('click', cycleGrid);
+document.getElementById('btn-grid-cycle').addEventListener('click', cycleGrid);
+
+/* Display- / Kamera-Modus umschalten */
+function setDrawMode(mode){
+  state.drawMode=mode;
+  document.querySelectorAll('.mode-switch button').forEach(b=>b.classList.toggle('active', b.dataset.mode===mode));
+  if(mode==='camera'){
+    document.getElementById('draw-paper-hint').style.display='none';
+    startCamera();
+  } else {
+    stopCamera();
+    hideCamError();
+    document.getElementById('zoom-presets').style.display='none';
+    document.getElementById('draw-paper-hint').style.display='flex';
+  }
+}
+document.querySelectorAll('.mode-switch button').forEach(b=>b.addEventListener('click', ()=>setDrawMode(b.dataset.mode)));
+
+/* Kamera (getUserMedia) inkl. Geräte-Fähigkeiten-, Objektiv- und Zoom-Erkennung */
+function osHint(){
+  const ua=navigator.userAgent||'';
+  if(/Android/i.test(ua)) return 'Android: Einstellungen → Apps → [dein Browser, z. B. Chrome] → Berechtigungen → Kamera → Zulassen.';
+  if(/iPhone|iPad|iPod/i.test(ua)) return 'iPhone/iPad: Einstellungen → [dein Browser, z. B. Safari] → Kamera → Zulassen.';
+  if(/Macintosh/i.test(ua)) return 'Mac: Systemeinstellungen → Datenschutz & Sicherheit → Kamera → Haken bei deinem Browser setzen.';
+  if(/Windows/i.test(ua)) return 'Windows: Einstellungen → Datenschutz & Sicherheit → Kamera → Zugriff für Apps aktivieren und deinen Browser erlauben.';
+  return 'Prüfe zusätzlich die Kamera-Berechtigung deines Betriebssystems für den Browser.';
+}
+function diagnosticsBlock(permState, err){
+  let lines=['— Diagnose —',
+    'Protokoll: '+location.protocol,
+    'Sicherer Kontext: '+(window.isSecureContext?'ja':'nein'),
+    'Berechtigungsstatus (Website): '+(permState||'unbekannt')];
+  if(err && err.name){ lines.push('Technischer Fehler: '+err.name+(err.message?' – '+err.message:'')); }
+  return lines.join('\n');
+}
+function cameraErrorMessage(err, permState){
+  let main;
+  switch(err && err.name){
+    case 'FileProtocol':
+      main='Die Datei ist direkt vom Dateisystem geöffnet (file://). Viele Browser blockieren dort jeden Kamerazugriff komplett — unabhängig von jeder erteilten Berechtigung. Starte einen lokalen Server im Ordner der Datei, z. B.:\npython3 -m http.server 8000\nund öffne dann http://localhost:8000/axcarion.html.';
+      break;
+    case 'InsecureContext':
+      main='Kamera benötigt eine sichere Verbindung (HTTPS oder localhost). Öffne die Seite über einen lokalen Server oder per HTTPS.';
+      break;
+    case 'NotAllowedError':
+    case 'PermissionDeniedError':
+      main='Kamerazugriff wurde blockiert. Bitte zwei Stellen prüfen:\n\n1) Seiten-Berechtigung: Schloss-/Kamera-Symbol in der Adressleiste antippen → Berechtigungen → Kamera auf „Zulassen“ stellen → Seite neu laden.\n\n2) Das Betriebssystem blockiert die Kamera oft zusätzlich für den gesamten Browser, unabhängig von der Website-Einstellung: '+osHint();
+      break;
+    case 'NotFoundError':
+      main='Es wurde keine Kamera auf diesem Gerät gefunden.';
+      break;
+    case 'NotReadableError':
+      main='Die Kamera wird gerade von einer anderen App oder einem anderen Browser-Tab verwendet. Schließe andere Apps/Tabs, die die Kamera nutzen könnten (auch im Hintergrund), und versuche es erneut.';
+      break;
+    case 'OverconstrainedError':
+      main='Die angeforderte Kamera-Einstellung konnte nicht erfüllt werden, und auch der automatische Rückfall auf eine andere Kamera ist fehlgeschlagen.';
+      break;
+    case 'SecurityError':
+      main='Kamerazugriff wurde aus Sicherheitsgründen blockiert.';
+      break;
+    default:
+      main='Kamera konnte nicht gestartet werden'+(err&&err.name?' ('+err.name+')':'')+'.';
+  }
+  const rawErr = (err && err.name && err.name!=='FileProtocol' && err.name!=='InsecureContext') ? err : null;
+  return main + '\n\n' + diagnosticsBlock(permState, rawErr);
+}
+function showCamError(msg){
+  document.getElementById('cam-error-text').textContent = msg;
+  document.getElementById('cam-error').style.display='flex';
+  document.getElementById('draw-video').style.display='none';
+  document.getElementById('cam-controls-row').style.display='none';
+  document.getElementById('zoom-presets').style.display='none';
+}
+function hideCamError(){ document.getElementById('cam-error').style.display='none'; }
+document.getElementById('btn-cam-retry').addEventListener('click', startCamera);
+
+async function startCamera(){
+  hideCamError();
+  const video=document.getElementById('draw-video');
+  stopCameraStreamOnly();
+  state.usingAltLens=false;
+
+  if(location.protocol==='file:'){
+    showCamError(cameraErrorMessage({name:'FileProtocol'})); return;
+  }
+  if(!window.isSecureContext){
+    showCamError(cameraErrorMessage({name:'InsecureContext'})); return;
+  }
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    showCamError('Dieser Browser unterstützt keinen Kamerazugriff.\n\n'+diagnosticsBlock()); return;
+  }
+  // Vorab prüfen, ob der Browser den Zugriff bereits dauerhaft blockiert hat.
+  // Das vermeidet einen wiederholten, sofort scheiternden getUserMedia-Aufruf
+  // und zeigt stattdessen direkt die passende Anleitung inkl. Diagnose.
+  let permState='unbekannt';
+  if(navigator.permissions && navigator.permissions.query){
+    try{
+      const status = await navigator.permissions.query({name:'camera'});
+      permState=status.state;
+      if(status.state==='denied'){
+        showCamError(cameraErrorMessage({name:'NotAllowedError'}, permState));
+        status.onchange = ()=>{ if(status.state!=='denied') startCamera(); };
+        return;
+      }
+    }catch(e){ /* 'camera' wird von der Permissions API nicht in jedem Browser unterstützt */ }
+  }
+  try{
+    let stream;
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:state.facingMode}, audio:false});
+    }catch(firstErr){
+      // Manche Geräte/Browser lehnen die exakte facingMode-Anfrage ab, obwohl
+      // grundsätzlich eine Kamera vorhanden und erlaubt ist. Fallback: irgendeine
+      // verfügbare Kamera ohne weitere Einschränkung anfordern.
+      if(['OverconstrainedError','NotFoundError','NotReadableError'].includes(firstErr.name)){
+        try{
+          stream = await navigator.mediaDevices.getUserMedia({video:true, audio:false});
+        }catch(fallbackErr){ throw fallbackErr; }
+      } else {
+        throw firstErr;
+      }
+    }
+    state.cameraStream=stream;
+    video.srcObject=stream;
+    video.style.display='block';
+    video.play().catch(()=>{});
+    document.getElementById('cam-controls-row').style.display='flex';
+    document.querySelectorAll('.zoom-btn').forEach(b=>b.classList.toggle('active', b.dataset.zoom==='1'));
+    state.currentZoomPreset='1';
+    await detectCameraCapabilities(stream);
+    requestWakeLock();
+  }catch(err){
+    console.warn('Axcarion Kamerafehler:', err);
+    showCamError(cameraErrorMessage(err, permState));
+  }
+}
+function stopCameraStreamOnly(){
+  if(state.cameraStream){ state.cameraStream.getTracks().forEach(t=>t.stop()); state.cameraStream=null; }
+}
+function stopCamera(){
+  stopCameraStreamOnly();
+  document.getElementById('draw-video').style.display='none';
+  document.getElementById('cam-controls-row').style.display='none';
+  releaseWakeLock();
+}
+async function detectCameraCapabilities(stream){
+  const track=stream.getVideoTracks()[0];
+  const caps = track.getCapabilities ? track.getCapabilities() : {};
+  document.getElementById('btn-cam-flash').disabled = !caps.torch;
+  state.zoomCaps = caps.zoom || null;
+
+  // Mehrere Kamera-Objektive erkennen (Heuristik über Geräte-Label).
+  // NATIVE-ANDROID: Auf Web-Ebene lässt sich ein echter Objektiv-Wechsel
+  // (Ultraweitwinkel/Tele) nur erkennen, wenn der Browser die physischen
+  // Linsen als separate videoinput-Geräte mit Label meldet – das ist nicht
+  // auf jedem Gerät/Browser der Fall. In der nativen Android-App soll dafür
+  // die CameraX Multi-Camera-/Logical-Camera-API genutzt werden, die
+  // Objektive zuverlässig und geräteübergreifend bereitstellt.
+  state.lensDevices = {ultrawide:null, tele:null};
+  if(navigator.mediaDevices.enumerateDevices){
+    const devices = await navigator.mediaDevices.enumerateDevices().catch(()=>[]);
+    const cams = devices.filter(d=>d.kind==='videoinput');
+    document.getElementById('btn-cam-switch').disabled = cams.length<2;
+    cams.forEach(d=>{
+      const l=(d.label||'').toLowerCase();
+      if(!state.lensDevices.ultrawide && /ultra|0\.5|wide angle 2/.test(l)) state.lensDevices.ultrawide=d.deviceId;
+      else if(!state.lensDevices.tele && /tele|2x|3x|zoom lens/.test(l)) state.lensDevices.tele=d.deviceId;
+    });
+  }
+  updateZoomPresetAvailability();
+}
+document.getElementById('btn-cam-flash').addEventListener('click', async ()=>{
+  if(!state.cameraStream) return;
+  const track=state.cameraStream.getVideoTracks()[0];
+  state.torchOn=!state.torchOn;
+  try{ await track.applyConstraints({advanced:[{torch:state.torchOn}]}); }
+  catch(e){ toast('Blitzsteuerung wird von diesem Gerät nicht unterstützt.'); state.torchOn=false; }
+  document.getElementById('btn-cam-flash').classList.toggle('active', state.torchOn);
+});
+document.getElementById('btn-cam-switch').addEventListener('click', ()=>{
+  state.facingMode = state.facingMode==='environment' ? 'user' : 'environment';
+  startCamera();
+});
+
+/* Zoom-Voreinstellungen 0.5x / 1x / 2x */
+function updateZoomPresetAvailability(){
+  const row=document.getElementById('zoom-presets');
+  if(state.drawMode!=='camera'){ row.style.display='none'; return; }
+  row.style.display='flex';
+  row.querySelector('[data-zoom="0.5"]').disabled = !state.lensDevices.ultrawide;
+  row.querySelector('[data-zoom="2"]').disabled = !(state.lensDevices.tele || state.zoomCaps);
+}
+async function applyDigitalZoom(value){
+  if(!state.cameraStream) return;
+  const track=state.cameraStream.getVideoTracks()[0];
+  try{ await track.applyConstraints({advanced:[{zoom:value}]}); }
+  catch(e){ toast('Zoom wird von diesem Gerät nicht unterstützt.'); }
+}
+async function switchToDeviceId(deviceId){
+  stopCameraStreamOnly();
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({video:{deviceId:{exact:deviceId}}, audio:false});
+    state.cameraStream=stream; state.usingAltLens=true;
+    document.getElementById('draw-video').srcObject=stream;
+    await detectCameraCapabilities(stream);
+  }catch(e){ toast('Objektiv konnte nicht gewechselt werden.'); startCamera(); }
+}
+async function selectZoomPreset(preset){
+  const btn = document.querySelector('.zoom-btn[data-zoom="'+preset+'"]');
+  if(btn && btn.disabled){ toast('Diese Zoomstufe wird von deinem Gerät nicht unterstützt.'); return; }
+  document.querySelectorAll('.zoom-btn').forEach(b=>b.classList.toggle('active', b.dataset.zoom===preset));
+  state.currentZoomPreset = preset;
+  if(preset==='0.5' && state.lensDevices.ultrawide){
+    await switchToDeviceId(state.lensDevices.ultrawide);
+  } else if(preset==='2' && state.lensDevices.tele){
+    await switchToDeviceId(state.lensDevices.tele);
+  } else if(preset==='2' && state.zoomCaps){
+    await applyDigitalZoom(state.zoomCaps.min + (state.zoomCaps.max-state.zoomCaps.min)*0.35);
+  } else if(preset==='1'){
+    if(state.usingAltLens) startCamera();
+    else if(state.zoomCaps) await applyDigitalZoom(state.zoomCaps.min);
+  }
+}
+document.querySelectorAll('.zoom-btn').forEach(b=>b.addEventListener('click', ()=>selectZoomPreset(b.dataset.zoom)));
+
+/* Bildschirm wach halten */
+async function requestWakeLock(){
+  try{
+    if('wakeLock' in navigator){
+      state.wakeLock = await navigator.wakeLock.request('screen');
+      document.getElementById('wake-lock-state').textContent='an';
+      state.wakeLock.addEventListener('release', ()=>{ document.getElementById('wake-lock-state').textContent='aus'; });
+    }
+  }catch(e){ /* z.B. Seite nicht sichtbar – kein Fehler anzeigen */ }
+}
+function releaseWakeLock(){
+  if(state.wakeLock){ state.wakeLock.release().catch(()=>{}); state.wakeLock=null; }
+  document.getElementById('wake-lock-state').textContent='aus';
+}
+document.getElementById('btn-wake-lock').addEventListener('click', ()=>{
+  if(state.wakeLock) releaseWakeLock(); else requestWakeLock();
+});
+
+/* Projekt speichern */
+function saveProject(){
+  if(!state.currentImage){ toast('Kein Bild ausgewählt'); return; }
+  const defaultName = state.currentImage.name || ('Projekt '+(getLS('axc_projects',[]).length+1));
+  const name = window.prompt('Name für dieses Projekt:', defaultName);
+  if(name===null) return;
+  const projects = getLS('axc_projects',[]);
+  projects.unshift({
+    id:uid(), name:name||'Unbenanntes Projekt', image:state.currentImage.src,
+    category:state.currentImage.category||'eigene', transform:{...drawTransform}, createdAt:Date.now()
+  });
+  setLS('axc_projects', projects);
+  toast('Projekt gespeichert');
+}
+
+/* ------------------------------------------------------------------
+   12. PROJEKTE-SCREEN
+------------------------------------------------------------------ */
+document.getElementById('proj-back').addEventListener('click', goBack);
+document.querySelectorAll('#screen-projects .lib-tab').forEach(t=>t.addEventListener('click', ()=>{
+  document.querySelectorAll('#screen-projects .lib-tab').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  renderProjTab(t.dataset.ptab);
+}));
+function projCardHtml(item){
+  const fav=isFavorite(item.src);
+  return `<div class="proj-card">
+    <div class="proj-thumb"><img src="${item.src}" alt=""></div>
+    <div class="proj-info">
+      <div class="name">${escapeHtml(item.name||'Ohne Titel')}</div>
+      <div class="meta">${item.sub||''}</div>
+    </div>
+    <div class="proj-actions">
+      <button class="act-fav ${fav?'fav-on':''}" aria-label="Favorit"><svg viewBox="0 0 24 24" fill="${fav?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M12 21s-7.5-4.6-10-9.2C.4 8.2 2 4 6 4c2 0 3.5 1.2 4 2.4C10.5 5.2 12 4 14 4c4 0 5.6 4.2 4 7.8-2.5 4.6-10 9.2-10 9.2z"/></svg></button>
+      <button class="act-del" aria-label="Löschen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m-7 0 1 13a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2l1-13" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </div>
+  </div>`;
+}
+function emptyStateBlock(tab){
+  const msgs={projekte:'Noch keine gespeicherten Projekte.', favoriten:'Noch keine Favoriten markiert.', zuletzt:'Du hast noch keine Vorlage verwendet.', bilder:'Noch keine eigenen Bilder hochgeladen.'};
+  return `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg><p>${msgs[tab]||'Nichts gefunden.'}</p></div>`;
+}
+function renderProjTab(tab){
+  let items=[];
+  if(tab==='projekte') items=getLS('axc_projects',[]).map(p=>({...p, src:p.image, sub:formatDate(p.createdAt)}));
+  else if(tab==='zuletzt') items=getLS('axc_recents',[]).map(r=>({...r, sub:formatDate(r.ts)}));
+  else if(tab==='bilder') items=getLS('axc_own_images',[]).map(o=>({...o, sub:formatDate(o.ts)}));
+  else if(tab==='favoriten'){
+    const favs=getLS('axc_favorites',[]);
+    const all=[
+      ...getLS('axc_projects',[]).map(p=>({...p, src:p.image, sub:formatDate(p.createdAt)})),
+      ...getLS('axc_recents',[]).map(r=>({...r, sub:formatDate(r.ts)})),
+      ...getLS('axc_own_images',[]).map(o=>({...o, sub:formatDate(o.ts)}))
+    ];
+    items=all.filter(i=>favs.includes(i.src));
+  }
+  const list=document.getElementById('proj-list');
+  if(items.length===0){ list.innerHTML=emptyStateBlock(tab); return; }
+  list.innerHTML = items.map(i=>projCardHtml(i)).join('');
+  list.querySelectorAll('.proj-card').forEach((el,idx)=>{
+    el.addEventListener('click', e=>{
+      if(e.target.closest('.proj-actions')) return;
+      const item=items[idx];
+      if(tab==='projekte' && item.transform){
+        state.currentImage={src:item.src, name:item.name, category:item.category||'eigene'};
+        drawTransform={...item.transform};
+        goTo('screen-draw');
+        enterDrawScreen(true);
+      } else {
+        openImageInEditor({src:item.src, name:item.name, category:item.category||'eigene'});
+      }
+    });
+  });
+  list.querySelectorAll('.act-fav').forEach((btn,idx)=>btn.addEventListener('click', e=>{
+    e.stopPropagation(); toggleFavorite(items[idx].src); renderProjTab(tab);
+  }));
+  list.querySelectorAll('.act-del').forEach((btn,idx)=>btn.addEventListener('click', e=>{
+    e.stopPropagation();
+    const item=items[idx];
+    ['axc_projects','axc_recents','axc_own_images'].forEach(key=>{
+      const arr=getLS(key,[]); const filtered=arr.filter(x=>x.id!==item.id);
+      if(filtered.length!==arr.length) setLS(key, filtered);
+    });
+    toast('Gelöscht');
+    renderProjTab(tab);
+  }));
+}
+
+/* ------------------------------------------------------------------
+   13. EINSTELLUNGEN
+------------------------------------------------------------------ */
+document.getElementById('settings-back').addEventListener('click', goBack);
+function applyProMode(){
+  document.querySelectorAll('.beginner-hide').forEach(el=>{ el.style.display = state.proMode ? '' : 'none'; });
+  if(!state.proMode) document.getElementById('dock-adv').classList.remove('show');
+  document.getElementById('toggle-pro').classList.toggle('on', state.proMode);
+}
+document.getElementById('toggle-pro').addEventListener('click', ()=>{
+  state.proMode=!state.proMode; setLS('axc_pro_mode', state.proMode); applyProMode();
+});
+document.getElementById('settings-replay-tutorial').addEventListener('click', startOnboarding);
+document.getElementById('settings-plan-info').addEventListener('click', ()=>toast('Die Abo-Verwaltung folgt in einer späteren Version.'));
+document.getElementById('settings-privacy').addEventListener('click', ()=>document.getElementById('overlay-consent').classList.add('active'));
+document.getElementById('settings-reset-all').addEventListener('click', ()=>{
+  if(confirm('Wirklich alle Daten löschen? Dies kann nicht rückgängig gemacht werden.')){
+    localStorage.clear();
+    toast('Alle Daten gelöscht');
+    setTimeout(()=>location.reload(), 600);
+  }
+});
+function syncSettingsScreen(){
+  const trial=getLS('axc_trial', null);
+  document.getElementById('settings-plan-sub').textContent = trial
+    ? (trial.skipped ? 'Kein Abo aktiv (Test übersprungen)' : 'Testphase / Plan: '+(trial.plan||'–')+' (simuliert)')
+    : 'Kein Abo aktiv';
+}
+
+/* ------------------------------------------------------------------
+   14. INIT
+------------------------------------------------------------------ */
+function init(){
+  state.proMode = getLS('axc_pro_mode', false);
+  renderMosaic();
+  renderCatScroller();
+  renderLibraryGrid();
+  applyProMode();
+  window.addEventListener('beforeunload', ()=>{ stopCameraStreamOnly(); });
+  runLoading();
+}
+init();
+
+/* PWA: Service Worker registrieren (ermöglicht Installierbarkeit/Offline-Start;
+   Voraussetzung für den APK-Weg über PWABuilder). Läuft nur unter HTTPS/localhost. */
+if('serviceWorker' in navigator && window.isSecureContext){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('service-worker.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
+
